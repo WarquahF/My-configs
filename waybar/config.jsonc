@@ -1,0 +1,104 @@
+// Liquid Glass Waybar — CachyOS + Hyprland (1920x1080 @ 1.5x scale)
+// Font: MesloLGS Nerd Font Mono. See ../README.md for details.
+{
+    "layer": "top",
+    "position": "top",
+    // Compact height suits 1080p @ 1.5 scale; margins keep the bar floating.
+    "height": 38,
+    "spacing": 8,
+    "margin-top": 10,
+    "margin-left": 12,
+    "margin-right": 12,
+
+    "modules-left": [
+        "hyprland/workspaces"
+    ],
+    "modules-center": [
+        "clock"
+    ],
+    "modules-right": [
+        "network",
+        "pulseaudio",
+        "battery",
+        "custom/power"
+    ],
+
+    // Left: numbered workspaces 1-5. Click to jump to a workspace.
+    "hyprland/workspaces": {
+        "format": "{name}",
+        "on-click": "activate",
+        "sort-by-number": true,
+        "persistent-workspaces": {
+            "*": 5
+        }
+    },
+
+    // Center: minimal live clock. Tooltip carries the full date.
+    "clock": {
+        "format": "{:%H:%M}",
+        "tooltip-format": "{:%A, %d %B %Y\n%H:%M}",
+        "interval": 30
+    },
+
+    // Right: network. Icon-only to stay compact; details live in the tooltip.
+    "network": {
+        "interval": 10,
+        "format-wifi": "",
+        "format-ethernet": "󰈀",
+        "format-linked": "󰈀",
+        "format-disconnected": "󰖪",
+        "tooltip-format-wifi": "{essid} ({signalStrength}%)\n{ipaddr} via {ifname}",
+        "tooltip-format-ethernet": "{ifname}: {ipaddr}",
+        "tooltip-format-linked": "{ifname}: no address",
+        "tooltip-format-disconnected": "Disconnected",
+        "on-click": "kitty -e nmtui"
+    },
+
+    // Right: audio. Scroll to change volume, left-click opens mixer,
+    // right-click toggles mute.
+    "pulseaudio": {
+        "scroll-step": 5,
+        "max-volume": 100,
+        "format": "{icon} {volume}%",
+        "format-muted": "󰝟 Muted",
+        "format-icons": {
+            "default": ["", "", ""]
+        },
+        "tooltip-format": "{desc}\nVolume: {volume}%",
+        "on-click": "pavucontrol",
+        "on-click-right": "pactl set-sink-mute @DEFAULT_SINK@ toggle"
+    },
+
+    // Right: battery. Icons track capacity; charging/plugged/low are distinct.
+    "battery": {
+        "interval": 30,
+        "states": {
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{icon} {capacity}%",
+        "format-full": "󰁹 {capacity}%",
+        "format-charging": "󰂄 {capacity}%",
+        "format-plugged": " {capacity}%",
+        "format-icons": [
+            "󰂎",
+            "󰁺",
+            "󰁻",
+            "󰁼",
+            "󰁽",
+            "󰁾",
+            "󰁿",
+            "󰂀",
+            "󰂁",
+            "󰂂"
+        ],
+        "tooltip-format": "{capacity}% ({time} remaining)\n{power} W"
+    },
+
+    // Right: power button. Opens the rofi power menu (no Noctalia needed).
+    "custom/power": {
+        "format": "⏻",
+        "tooltip-format": "Power menu",
+        "on-click": "$HOME/.config/waybar/scripts/power-menu.sh"
+    }
+}

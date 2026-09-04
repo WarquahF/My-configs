@@ -1,0 +1,145 @@
+/* Liquid Glass Waybar — CachyOS + Hyprland
+ *
+ * Frosted islands over a transparent bar. The real blur comes from
+ * Hyprland (see hypr/config/waybar.lua); this file only paints
+ * translucent fills, a subtle border, and a soft shadow.
+ * No gradients, no glow. Compact by design (1080p @ 1.5x).
+ */
+
+* {
+    font-family: "MesloLGS Nerd Font Mono";
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+/* The bar itself is transparent — the islands float on the wallpaper. */
+window#waybar {
+    background: transparent;
+    color: #ffffff;
+}
+
+/* --- Glass islands -------------------------------------------------- */
+/* Each section is its own frosted pill. */
+#workspaces,
+#clock,
+#network,
+#pulseaudio,
+#battery,
+#custom-power {
+    background: rgba(16, 18, 24, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+#clock {
+    padding: 4px 16px;
+    color: #ffffff;
+}
+
+/* Right-side pills share one compact rhythm. */
+#network,
+#pulseaudio,
+#battery,
+#custom-power {
+    color: rgba(255, 255, 255, 0.88);
+    padding: 4px 12px;
+    margin-left: 8px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#network:hover,
+#pulseaudio:hover,
+#battery:hover,
+#custom-power:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+}
+
+/* --- Workspaces ------------------------------------------------------ */
+#workspaces {
+    padding: 3px;
+}
+
+#workspaces button {
+    color: rgba(255, 255, 255, 0.45);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    padding: 2px 10px;
+    margin: 0 1px;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Active workspace: the distinct glass pill. */
+#workspaces button.active {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* Hover stays visible but quieter than active. */
+#workspaces button:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.09);
+}
+
+/* Urgent workspace: clearly distinct, still flat. */
+#workspaces button.urgent {
+    color: #ffffff;
+    background: rgba(200, 80, 80, 0.35);
+    border-color: rgba(255, 140, 140, 0.45);
+}
+
+/* --- Reactive states -------------------------------------------------- */
+/* Network offline reads as a warning, not decoration. */
+#network.disconnected {
+    color: #f0a0a0;
+}
+
+/* Muted audio dims so the state is obvious at a glance. */
+#pulseaudio.muted {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+/* Battery: amber at warning, red at critical. */
+#battery.warning {
+    color: #f0c070;
+}
+
+#battery.critical {
+    color: #f09393;
+    background: rgba(200, 80, 80, 0.25);
+    border-color: rgba(255, 140, 140, 0.4);
+}
+
+#battery.charging,
+#battery.plugged {
+    color: #a8e0b8;
+}
+
+/* Power button: quiet until hovered. */
+#custom-power {
+    color: rgba(255, 255, 255, 0.75);
+    padding: 4px 13px;
+}
+
+#custom-power:hover {
+    color: #ffffff;
+}
+
+/* --- Tooltip ----------------------------------------------------------- */
+tooltip {
+    background: rgba(16, 18, 24, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+tooltip label {
+    color: #ffffff;
+    padding: 4px;
+}
