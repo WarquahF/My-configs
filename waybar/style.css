@@ -26,8 +26,14 @@ window#waybar {
 #workspaces,
 #clock,
 #network,
+#bluetooth,
 #pulseaudio,
 #battery,
+#temperature,
+#memory,
+#custom-awake,
+#custom-notifications,
+#custom-screenshot,
 #custom-power {
     background: rgba(16, 18, 24, 0.55);
     border: 1px solid rgba(255, 255, 255, 0.12);
@@ -42,8 +48,14 @@ window#waybar {
 
 /* Right-side pills share one compact rhythm. */
 #network,
+#bluetooth,
 #pulseaudio,
 #battery,
+#temperature,
+#memory,
+#custom-awake,
+#custom-notifications,
+#custom-screenshot,
 #custom-power {
     color: rgba(255, 255, 255, 0.88);
     padding: 4px 12px;
@@ -52,8 +64,14 @@ window#waybar {
 }
 
 #network:hover,
+#bluetooth:hover,
 #pulseaudio:hover,
 #battery:hover,
+#temperature:hover,
+#memory:hover,
+#custom-awake:hover,
+#custom-notifications:hover,
+#custom-screenshot:hover,
 #custom-power:hover {
     background: rgba(255, 255, 255, 0.12);
     color: #ffffff;
@@ -100,6 +118,11 @@ window#waybar {
     color: #f0a0a0;
 }
 
+/* Bluetooth radio off dims so the state is obvious at a glance. */
+#bluetooth.disabled {
+    color: rgba(255, 255, 255, 0.45);
+}
+
 /* Muted audio dims so the state is obvious at a glance. */
 #pulseaudio.muted {
     color: rgba(255, 255, 255, 0.45);
@@ -119,6 +142,43 @@ window#waybar {
 #battery.charging,
 #battery.plugged {
     color: #a8e0b8;
+}
+
+/* CPU over the critical threshold (85 °C) reads as an alert. */
+#temperature.critical {
+    color: #f09393;
+    background: rgba(200, 80, 80, 0.25);
+    border-color: rgba(255, 140, 140, 0.4);
+}
+
+/* Keep-awake toggle: dim when off, warm amber pill when holding the PC awake. */
+#custom-awake {
+    color: rgba(255, 255, 255, 0.55);
+    padding: 4px 13px;
+}
+
+#custom-awake.awake-on {
+    color: #f0c070;
+    background: rgba(240, 192, 112, 0.14);
+    border-color: rgba(240, 192, 112, 0.35);
+}
+
+/* Notification bell: dim when clear, bright with unread waiting. */
+#custom-notifications {
+    color: rgba(255, 255, 255, 0.55);
+    padding: 4px 13px;
+}
+
+#custom-notifications.has-unread {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Screenshot button: quiet until hovered, like power. */
+#custom-screenshot {
+    color: rgba(255, 255, 255, 0.75);
+    padding: 4px 13px;
 }
 
 /* Power button: quiet until hovered. */

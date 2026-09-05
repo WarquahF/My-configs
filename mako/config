@@ -1,0 +1,34 @@
+# mako — notification daemon config for the Liquid Glass desktop.
+# Behavior: everything vanishes after 7s, EXCEPT critical (emergency)
+# notifications, which stay until dismissed. Expired items go to history
+# (makoctl history) and surface in the Waybar notification center.
+# Reload a running mako with: makoctl reload
+
+font=MesloLGS Nerd Font Mono 11
+width=360
+anchor=top-right
+# Overlay layer: popups stay visible even over fullscreen windows,
+# so emergency notifications are never hidden behind an app.
+layer=overlay
+outer-margin=12,12,8
+margin=8
+padding=12
+
+# Frosted-dark pill to match the Waybar islands (mako has no blur,
+# so the fill stays near-opaque to remain readable over windows).
+background-color=#101218E6
+text-color=#FFFFFFFF
+border-size=1
+border-color=#FFFFFF1F
+border-radius=12
+
+max-history=50
+history=1
+# Enforce our timeouts even when apps request their own.
+ignore-timeout=1
+default-timeout=7000
+
+# Emergency notifications persist until manually dismissed.
+[urgency=critical]
+default-timeout=0
+border-color=#FF8C8C73

@@ -28,7 +28,7 @@ if [[ "$missing_required" -ne 0 ]]; then
     echo "[install] install the missing packages first (e.g. sudo pacman -S waybar rofi), then re-run." >&2
     exit 1
 fi
-for opt in nmcli nmtui pactl pavucontrol loginctl systemctl python3; do
+for opt in nmcli nmtui pactl pavucontrol loginctl systemctl python3 grim slurp wl-copy jq swappy satty; do
     command -v "$opt" >/dev/null 2>&1 || warn "optional tool missing: $opt (some bar actions degrade gracefully)"
 done
 
@@ -64,14 +64,18 @@ link_file() {
 # --- Directories --------------------------------------------------------------
 mkdir -p "$HOME_DIR/.config/waybar/scripts" "$HOME_DIR/.config/hypr/config" \
          "$HOME_DIR/.config/kitty" "$HOME_DIR/.config/btop" \
-         "$HOME_DIR/Pictures/Wallpapers"
+         "$HOME_DIR/.config/mako" "$HOME_DIR/.config/rofi" \
+         "$HOME_DIR/Pictures/Wallpapers" "$HOME_DIR/Pictures/Screenshots"
 
 # --- Waybar -------------------------------------------------------------------
 link_file "waybar/config.jsonc" ".config/waybar/config.jsonc"
 link_file "waybar/style.css" ".config/waybar/style.css"
-link_file "waybar/scripts/power-menu.sh" ".config/waybar/scripts/power-menu.sh"
-chmod +x "$REPO_DIR/waybar/scripts/power-menu.sh"
-log "power-menu.sh is executable"
+for script in "$REPO_DIR"/waybar/scripts/*.sh; do
+    name="$(basename "$script")"
+    link_file "waybar/scripts/$name" ".config/waybar/scripts/$name"
+    chmod +x "$script"
+done
+log "waybar scripts are executable"
 
 # --- Hyprland: blur layerrule only, existing config untouched -----------------
 link_file "hypr/config/waybar.lua" ".config/hypr/config/waybar.lua"
@@ -102,6 +106,44 @@ if [[ -f "$AUTOSTART" ]]; then
     else
         warn "autostart.lua has no waybar line; add: hl.exec_cmd(\"waybar\")"
     fi
+    if grep -q 'exec_cmd("mako")' "$AUTOSTART"; then
+        log "autostart.lua already launches mako"
+    else
+        backup_if_exists "$AUTOSTART"
+        cp "$BACKUP_DIR/.config/hypr/config/autostart.lua" "$AUTOSTART"
+        # Inside the hyprland.start callback, next to the waybar line.
+        sed -i '/hl.exec_cmd("waybar")/a \    hl.exec_cmd("mako")' "$AUTOSTART"
+        log "added mako startup to autostart.lua (exits quietly if already running)"
+    fi
+    if grep -q 'exec_cmd("awww-daemon")' "$AUTOSTART"; then
+        log "autostart.lua already launches awww-daemon"
+    else
+        backup_if_exists "$AUTOSTART"
+        cp "$BACKUP_DIR/.config/hypr/config/autostart.lua" "$AUTOSTART"
+        sed -i '/hl.exec_cmd("mako")/a \    hl.exec_cmd("awww-daemon")' "$AUTOSTART"
+        log "added awww-daemon startup to autostart.lua"
+    fi
+fi
+
+# --- mako: notification daemon (7s timeout, critical persists) -----------------
+link_file "mako/config" ".config/mako/config"
+if command -v makoctl >/dev/null 2>&1; then
+    makoctl reload 2>/dev/null && log "mako config reloaded" \
+        || warn "mako not running; it starts on next login (autostart line added above)"
+else
+    warn "mako is not installed; notifications need it (sudo pacman -S mako)"
+fi
+
+# --- rofi wallpaper picker (own theme file; your launcher theme untouched) ----
+link_file "rofi/wallpaper-picker.sh" ".config/rofi/wallpaper-picker.sh"
+link_file "rofi/wallpaper.rasi" ".config/rofi/wallpaper.rasi"
+link_file "rofi/wallpaper-menu.rasi" ".config/rofi/wallpaper-menu.rasi"
+chmod +x "$REPO_DIR/rofi/wallpaper-picker.sh"
+if [[ -d "$HOME_DIR/Pictures/Wallpapers" ]]; then
+    # One-time thumbnail build; instant no-op when the cache is fresh.
+    "$REPO_DIR/rofi/wallpaper-picker.sh" --build-cache 2>&1 | tail -n 2
+else
+    warn "wallpaper directory not found; picker cache build skipped"
 fi
 
 # --- Kitty / btop (backed up, Noctalia includes dropped) ----------------------
@@ -119,8 +161,11 @@ json.loads(text)
 print('[install] waybar config.jsonc: valid JSONC')
 EOF
 fi
-bash -n "$REPO_DIR/waybar/scripts/power-menu.sh" && log "power-menu.sh: syntax OK"
 bash -n "$REPO_DIR/install.sh" && log "install.sh: syntax OK"
+for script in "$REPO_DIR"/waybar/scripts/*.sh; do
+    bash -n "$script" || exit 1
+done
+log "waybar scripts: syntax OK"
 
 log "done. Backups (if any) are in: $BACKUP_DIR"
 log "reload Hyprland (hyprctl reload) and restart waybar: pkill waybar; waybar &"

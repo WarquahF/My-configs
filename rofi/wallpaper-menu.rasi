@@ -1,0 +1,63 @@
+/* Wallpaper picker — compact category menu.
+ * Same dark glass language as the filmstrip browser, small centered box. */
+* {
+    font: "MesloLGS Nerd Font Mono 11";
+    background-color: transparent;
+    text-color: #FFFFFFFF;
+}
+
+window {
+    width: 430px;
+    location: center;
+    anchor: center;
+    background-color: #101218E6;
+    border: 1px;
+    border-color: #FFFFFF1F;
+    border-radius: 14px;
+    padding: 16px;
+}
+
+mainbox {
+    children: [ inputbar, listview ];
+    spacing: 10px;
+}
+
+inputbar {
+    children: [ prompt, entry ];
+    spacing: 8px;
+    background-color: transparent;
+    text-color: #FFFFFFFF;
+}
+
+prompt, entry {
+    background-color: transparent;
+    text-color: #FFFFFFFF;
+}
+
+listview {
+    lines: 12;
+    spacing: 2px;
+    scrollbar: false;
+    background-color: transparent;
+}
+
+element {
+    padding: 6px 10px;
+    border-radius: 8px;
+    background-color: transparent;
+    border: 0px;
+}
+
+element normal.normal, element alternate.normal {
+    background-color: transparent;
+    text-color: #FFFFFFCC;
+}
+
+element selected.normal, element selected.alternate {
+    background-color: #FFFFFF14;
+    text-color: #FFFFFFFF;
+}
+
+element-text {
+    background-color: transparent;
+}

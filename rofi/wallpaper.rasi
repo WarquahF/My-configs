@@ -1,0 +1,88 @@
+/* Wallpaper picker theme — dark horizontal filmstrip.
+ * Matches the Liquid Glass desktop: near-black translucent surface,
+ * subtle border, soft rounding. No gradients, no glow. */
+* {
+    font: "MesloLGS Nerd Font Mono 11";
+    background-color: transparent;
+    text-color: #FFFFFFFF;
+}
+
+window {
+    /* Rasi px are logical (÷1.5 scale here): 1150 → ~1725 physical. */
+    width: 1150px;
+    location: center;
+    anchor: center;
+    background-color: #101218E6;
+    border: 1px;
+    border-color: #FFFFFF1F;
+    border-radius: 16px;
+    padding: 18px;
+}
+
+mainbox {
+    children: [ inputbar, listview ];
+    spacing: 14px;
+}
+
+inputbar {
+    children: [ prompt, entry ];
+    spacing: 10px;
+    background-color: transparent;
+    text-color: #FFFFFFFF;
+}
+
+prompt, entry {
+    background-color: transparent;
+    text-color: #FFFFFFFF;
+}
+
+listview {
+    columns: 5;
+    lines: 1;
+    spacing: 12px;
+    scrollbar: false;
+    background-color: transparent;
+}
+
+element {
+    orientation: vertical;
+    padding: 8px;
+    border-radius: 12px;
+    background-color: transparent;
+    border: 1px;
+    border-color: transparent;
+}
+
+/* State selectors outrank plain `element` — without these, rofi's
+   compiled-in light defaults bleed through the cards. */
+element normal.normal, element alternate.normal {
+    background-color: transparent;
+    text-color: #FFFFFFCC;
+}
+
+element selected.normal, element selected.alternate {
+    background-color: #FFFFFF14;
+    border-color: #FFFFFF2E;
+    text-color: #FFFFFFFF;
+}
+
+element-icon {
+    size: 200px;
+    border-radius: 8px;
+    background-color: #181B22;
+    horizontal-align: 0.5;
+}
+
+element-icon selected {
+    background-color: #20242E;
+}
+
+element-text {
+    background-color: transparent;
+    text-color: #FFFFFFCC;
+    horizontal-align: 0.5;
+}
+
+element-text selected {
+    text-color: #FFFFFFFF;
+}

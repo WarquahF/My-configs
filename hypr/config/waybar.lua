@@ -20,3 +20,21 @@ hl.layer_rule({
     blur = true,
     ignore_alpha = 0.3,
 })
+
+-- Dropdown info panels (temp-info.sh / mem-info.sh --popup, launched as
+-- `kitty --class waybar-dropdown`). Small floating windows pinned under
+-- the top-right bar cluster (bar bottom ~= 48px). Sizes are tuned per
+-- panel; any key closes the panel, "b" swaps it for full btop.
+hl.window_rule({
+    match = { class = "^(waybar-dropdown)$", title = "^(CPU Temp)$" },
+    float = true,
+    size = { "460", "300" },
+    move = { "monitor_w - 472", "56" },
+})
+
+hl.window_rule({
+    match = { class = "^(waybar-dropdown)$", title = "^(Memory)$" },
+    float = true,
+    size = { "460", "400" },
+    move = { "monitor_w - 472", "56" },
+})
