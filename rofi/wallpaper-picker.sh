@@ -11,9 +11,22 @@
 # Static images only (jpg/jpeg/png/webp/bmp; animated webp excluded).
 # Categories are detected dynamically from subfolder names — nothing hardcoded.
 # Requires: rofi, awww (+daemon, started on demand), python3 + PIL (thumbs).
+# Wallpaper dir: $WALLPAPER_DIR env, ~/.config/my-local-configs/wallpaper-dir,
+# or ~/Pictures/Wallpapers (in that order). Keeps public repo reproducible.
 set -euo pipefail
 
-WALLPAPER_DIR="/home/warquahf/Pictures/Wallpapers"
+resolve_wallpaper_dir() {
+    if [[ -n "${WALLPAPER_DIR:-}" && -d "$WALLPAPER_DIR" ]]; then
+        printf '%s' "$WALLPAPER_DIR"; return 0
+    fi
+    local override="$HOME/.config/my-local-configs/wallpaper-dir"
+    if [[ -f "$override" ]]; then
+        local d; d="$(head -n1 "$override" | sed 's|^~|'"$HOME"'|')"
+        if [[ -d "$d" ]]; then printf '%s' "$d"; return 0; fi
+    fi
+    printf '%s' "$HOME/Pictures/Wallpapers"
+}
+WALLPAPER_DIR="$(resolve_wallpaper_dir)"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/wallpaper-picker"
 THUMB_DIR="$CACHE_DIR/thumbs"
 LIBRARY="$CACHE_DIR/library.tsv"

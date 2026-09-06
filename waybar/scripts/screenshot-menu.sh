@@ -12,6 +12,14 @@ done
 
 notify() { notify-send "Screenshot" "$1" 2>/dev/null || true; }
 
+# 3-2-1 countdown so the rofi menu is gone before grim captures.
+countdown() {
+    for i in 3 2 1; do
+        notify "Capturing in $i…"
+        sleep 1
+    done
+}
+
 DIR="$HOME/Pictures/Screenshots"
 mkdir -p "$DIR"
 FILE="$DIR/Screenshot-$(date +%Y%m%d-%H%M%S).png"
@@ -34,6 +42,7 @@ after_save() {
 }
 
 take_full() {
+    countdown
     grim "$FILE" && after_save
 }
 
@@ -45,6 +54,7 @@ take_region() {
     local geo
     geo="$(slurp 2>/dev/null)" || exit 0
     [[ -z "$geo" ]] && exit 0
+    countdown
     grim -g "$geo" "$FILE" && after_save
 }
 
@@ -53,6 +63,7 @@ take_window() {
         local geo
         geo="$(hyprctl activewindow -j 2>/dev/null | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')"
         if [[ -n "$geo" && "$geo" != "null,null nullxnull" ]]; then
+            countdown
             grim -g "$geo" "$FILE" && after_save
             return
         fi
@@ -62,16 +73,24 @@ take_window() {
 }
 
 take_delayed() {
-    notify "Capturing fullscreen in 5s…"
-    sleep 5
-    take_full
+    countdown
+    grim "$FILE" && after_save
 }
 
 OPT_FULL="󰹑  Full screen"
 OPT_REGION="󰹑  Select region"
 OPT_WINDOW="󰹑  Active window"
-OPT_DELAY="󰹑  Full screen (5s delay)"
+OPT_DELAY="󰹑  Full screen (3s delay)"
 OPT_QUIT="  Quit"
+
+# Direct (no-menu) modes for keybinds, see hypr/config/capture.lua.
+case "${1:-menu}" in
+    --full) take_full; exit 0 ;;
+    --region) take_region; exit 0 ;;
+    --window) take_window; exit 0 ;;
+    menu) : ;;
+    *) echo "usage: screenshot-menu.sh [menu|--full|--region|--window]" >&2; exit 1 ;;
+esac
 
 choice="$(printf '%s\n' "$OPT_FULL" "$OPT_REGION" "$OPT_WINDOW" "$OPT_DELAY" "$OPT_QUIT" \
     | rofi -dmenu -p "Screenshot")" || exit 0

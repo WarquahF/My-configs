@@ -33,7 +33,9 @@ choice="$(printf '%s\n' "$LOCK" "$LOGOUT" "$REBOOT" "$SHUTDOWN" \
 
 case "$choice" in
     "$LOCK")     lock_session ;;
-    "$LOGOUT")   hyprctl dispatch exit ;;
+    # NOTE: plain `hyprctl dispatch exit` is broken in this Hyprland Lua
+    # build (string dispatches fail core-side); the Lua object form works.
+    "$LOGOUT")   hyprctl dispatch 'hl.dsp.exit()' ;;
     "$REBOOT")   systemctl reboot ;;
     "$SHUTDOWN") systemctl poweroff ;;
     *)           exit 0 ;;

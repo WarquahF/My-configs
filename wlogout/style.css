@@ -1,0 +1,64 @@
+/* wlogout — Liquid Glass, matches Waybar islands.
+ * Dark minimal overlay: translucent pills, hairline border, soft shadow.
+ * Real blur comes from Hyprland (see hypr/config/waybar.lua wlogout rule).
+ * Icons: wlogout/icons/*.png (128px Nerd Font, white on transparent). */
+
+* {
+    font-family: "MesloLGS Nerd Font Mono";
+    font-size: 14px;
+    font-weight: 600;
+    background-image: none;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+window {
+    /* Overlay dims wallpaper but never reserves layout space. */
+    background-color: rgba(8, 10, 14, 0.55);
+}
+
+button {
+    color: rgba(255, 255, 255, 0.88);
+    background-color: rgba(16, 18, 24, 0.72);
+    background-image: linear-gradient(to bottom,
+        rgba(255, 255, 255, 0.10),
+        rgba(255, 255, 255, 0.03) 42%,
+        rgba(255, 255, 255, 0.00) 58%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10),
+                0 12px 32px rgba(0, 0, 0, 0.45);
+    margin: 12px;
+    padding: 18px;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 25%;
+}
+
+button:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+}
+
+button:focus {
+    border-color: rgba(255, 255, 255, 0.28);
+    outline: none;
+}
+
+/* Per-action icons (relative to ~/.config/wlogout/). */
+#lock {
+    background-image: image(url("icons/lock.png"));
+}
+#logout {
+    background-image: image(url("icons/logout.png"));
+}
+#suspend {
+    background-image: image(url("icons/suspend.png"));
+}
+#reboot {
+    background-image: image(url("icons/reboot.png"));
+}
+#shutdown {
+    background-image: image(url("icons/shutdown.png"));
+}

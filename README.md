@@ -18,19 +18,26 @@ Noctalia is intentionally disabled and nothing here depends on it.
 ```
 .
 ├── README.md
-├── install.sh                  # symlink installer with backups
+├── install.sh                  # symlink installer with backups + conflict prompt
+├── emergency-restore.sh        # one-command rollback to newest backup
 ├── waybar/
 │   ├── config.jsonc            # layout + modules
 │   ├── style.css               # liquid-glass theme
 │   └── scripts/
-│       ├── power-menu.sh       # rofi power menu
+│       ├── power-menu.sh       # rofi power menu (wlogout fallback)
 │       ├── wifi-menu.sh        # rofi Wi-Fi menu (see below)
 │       ├── bluetooth-menu.sh   # rofi Bluetooth menu
 │       ├── screenshot-menu.sh  # rofi screenshots (fullscreen/region/window)
+│       ├── screenrecord-menu.sh # rofi screen recorder (fullscreen/region/stop)
 │       └── battery-info.sh     # battery details popup (see below)
 ├── hypr/
 │   ├── README.md
-│   └── config/waybar.lua       # blur layer rules for waybar + rofi
+│   ├── config/
+│   │   ├── waybar.lua          # blur layer rules for waybar/rofi/wlogout
+│   │   ├── capture.lua         # volume key binds (F2/F3 + XF86Audio*)
+│   │   └── session.lua         # wlogout/lock/power keybinds
+│   └── scripts/cursor-wiggle.py # shake-to-find-cursor daemon
+├── wlogout/                    # overlay power menu (layout, style, icons)
 ├── kitty/kitty.conf            # standalone, no theme includes
 ├── btop/btop.conf              # minimal overrides, built-in theme
 ├── mako/config                 # notifications: 7s timeout, critical persists
@@ -38,6 +45,8 @@ Noctalia is intentionally disabled and nothing here depends on it.
 │   ├── wallpaper-picker.sh     # visual wallpaper browser (see below)
 │   ├── wallpaper.rasi          # filmstrip theme (picker only)
 │   └── wallpaper-menu.rasi     # category menu theme (picker only)
+├── fingerprint/                # manual Goodix 27c6:5503 notes — never auto-run
+├── config-files/               # on-demand reference helpers, nothing symlinked
 └── wallpapers/README.md        # wallpapers live in ~/Pictures/Wallpapers
 ```
 
@@ -58,13 +67,19 @@ What it does:
 
 1. Checks required deps (`hyprctl`, `waybar`, `rofi`) and fails safely
    if any are missing — nothing is installed automatically.
-2. Creates `~/.config/{waybar/scripts,hypr/config,kitty,btop}` and
-   `~/Pictures/Wallpapers`.
-3. Moves anything it would replace into
+2. If it finds existing (non-symlink) configs it would replace, it asks
+   first: replace **all** (with backup), **ask per file**, or **abort**.
+3. Creates `~/.config/{waybar/scripts,hypr/config,kitty,btop,mako,rofi,wlogout}`,
+   `~/Pictures/{Wallpapers,Screenshots}` and `~/Videos/Recordings`.
+4. Moves anything it replaces into
    `~/.config-backup-YYYYMMDD-HHMMSS/` (originals are moved, never deleted).
-4. Symlinks repo files into `~/.config` and makes scripts executable.
-5. Adds `require("config.waybar")` to `hyprland.lua` (backed up first)
-   and verifies the existing `hl.exec_cmd("waybar")` autostart line.
+5. Symlinks repo files into `~/.config` and makes scripts executable.
+6. Adds `require("config.waybar")`, `require("config.capture")` and
+   `require("config.session")` to `hyprland.lua` (backed up first) and
+   verifies the existing `hl.exec_cmd("waybar")` autostart line.
+
+Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
+`--list` shows all backups, `--yes` skips the prompt).
 
 ## Waybar features
 
@@ -88,8 +103,8 @@ What it does:
     amber warning (~30%) and red critical (~15%), tooltip with time + power.
     **Click** opens a popup with time remaining, current draw,
     and the top power-consuming apps.
-  - CPU temperature from `x86_pkg_temp` with icon scale, red alert
-    past 85 °C; **click** drops a small panel under the bar with
+  - CPU temperature from the `coretemp` package sensor with icon scale,
+    red alert past 85 °C; **click** drops a small panel under the bar with
     per-core temps (any key closes, `b` opens full `btop`).
   - RAM load with used/total/swap tooltip; **click** drops a small panel
     under the bar with availability and top memory consumers
@@ -100,9 +115,15 @@ What it does:
   - Notification bell with unread count; **click** opens a rofi
     notification center (visible + history, dismiss-all action).
   - Screenshot camera; **click** opens a rofi menu: fullscreen,
-    region (`slurp`), active window, 5s delay. Saves to
+    region (`slurp`), active window, 3s delay. Saves to
     `~/Pictures/Screenshots/`, copies to clipboard, opens
     `swappy`/`satty` if installed.
+  - Screen recorder; **click** opens a rofi menu: fullscreen,
+    region, stop. Saves `.mp4` to `~/Videos/Recordings/`
+    (needs `wf-recorder`, red pill in bar while recording).
+  - Power button; **click** opens the `wlogout` frosted overlay
+    (lock/logout/suspend/reboot/shutdown), falling back to the rofi
+    power menu when `wlogout` is missing.
 - Subtle 0.2s transitions on hover/state changes; compact sizing
   tuned for 1080p @ 1.5x.
 
@@ -114,14 +135,13 @@ What it does:
 - The current wallpaper is marked (●) and pre-selected on open.
   The category menu also offers **Random wallpaper**.
 - Applies via `awww` with a `center` grow transition (~0.9s, 60fps —
-  no fade). Library: `/home/warquahf/Pictures/Wallpapers`
-  (1,637 static images; GIF/video/animated-webp excluded).
+  no fade). Library: `~/Pictures/Wallpapers` by default; override with
+  `$WALLPAPER_DIR` or a path in `~/.config/my-local-configs/wallpaper-dir`
+  (static jpg/jpeg/png/webp/bmp; GIF/video/animated-webp excluded).
 - Thumbnails are cached in `~/.cache/wallpaper-picker/` (built once by
   `install.sh`, refreshed automatically when you add/remove images).
 - Your launcher theme is untouched: the picker uses its own
   `wallpaper.rasi` / `wallpaper-menu.rasi` via `rofi -config`.
-- Restore Hyprland binds/autostart from:
-  `~/.config/hypr/backups/*-2026-09-05-1624.backup`.
 
 ## Notifications (mako)
 
@@ -135,13 +155,56 @@ What it does:
 - Style (dark frosted pill, top-right) lives in `mako/config`.
   Apply changes with `makoctl reload`.
 
+## Desktop feel (animations + wiggle cursor)
+
+- Workspace switching uses a macOS-style **slidefade** on a smooth
+  ease-out curve (your local `~/.config/hypr/config/animations.lua`,
+  other animations untouched — not versioned here).
+- **Shake to find the cursor:** wiggle the mouse fast and the cursor
+  doubles in size, shrinking back when you stop. Tiny stdlib-only daemon
+  (`hypr/scripts/cursor-wiggle.py`), started from Hyprland autostart,
+  single-instance, logs to `~/.cache/cursor-wiggle.log`.
+
+## Session & power (wlogout)
+
+- The bar's power pill and **Super+Alt+C** open the `wlogout` overlay —
+  a Wayland layer-shell surface, so Waybar never moves or restarts.
+  Blur comes from the `wlogout` layer rule in `hypr/config/waybar.lua`.
+- Fast lock: **Super+L** (`hyprlock`, falls back to `loginctl lock-session`).
+- Direct actions (no menu): **Super+Alt+L** lock · **Super+Alt+E** logout ·
+  **Super+Alt+S** suspend · **Super+Alt+R** reboot · **Super+Alt+P** shutdown.
+- Hibernate is intentionally omitted: this machine only has zram swap.
+- Keybinds live in `hypr/config/session.lua`; `binds.lua` is untouched.
+
+## Known upstream quirk (Hyprland Lua build)
+
+String dispatches like `hyprctl dispatch workspace 3` fail core-side
+(`hl.dispatch` wrapping bug), so bar **click-to-switch** (`activate`)
+and plain `hyprctl dispatch …` commands don't work until CachyOS ships
+a fix. Workarounds already in place: Super+number keybinds (native Lua,
+fully working), bar scroll and the power-menu logout use the
+`hyprctl dispatch 'hl.dsp.…(…)'` object form, which works.
+
 ## Hyprland integration
 
 - `hypr/config/waybar.lua` adds `blur = true` layer rules for the
-  `waybar` and `rofi` namespaces — this is what makes the bar frosted
-  (Waybar CSS cannot blur by itself; there is no `backdrop-filter`).
+  `waybar`, `rofi` and `wlogout` namespaces — this is what makes the bar
+  frosted (Waybar CSS cannot blur by itself; there is no `backdrop-filter`).
 - Blur strength stays in your `decorations.lua`; Noctalia's commented
   startup line is left as-is. See `hypr/README.md` for tuning.
+- `hypr/config/capture.lua` (live after `hyprctl reload`): volume keys
+  only — `F3` volume +5%, `F2` volume −5% (also bound on the
+  `XF86Audio*` media keysyms, so fnLock on/off both work).
+  Screenshot and screen recording are **waybar-only by design**: click
+  the camera / record pills for the rofi menus (no Print/record keybinds).
+- `hypr/config/session.lua`: wlogout + lock + direct power keybinds
+  (see “Session & power” above).
+
+## Fingerprint (manual, optional)
+
+`fingerprint/` documents Goodix 27c6:5503 setup (community driver,
+enrollment, PAM notes). `install.sh` deliberately never touches it —
+see `fingerprint/README.md` and `setup-fingerprint.sh --help`.
 
 ## Customizing the theme
 
@@ -168,6 +231,8 @@ cp ~/.config-backup-20260904-180000/.config/waybar/style.css ~/.config/waybar/st
 # restore everything from a run:
 cp -r ~/.config-backup-20260904-180000/.config/. ~/.config/
 hyprctl reload; pkill waybar; waybar &
+# or simply:
+./emergency-restore.sh
 ```
 
 Symlinks can be removed with plain `rm` — your backups are real files,

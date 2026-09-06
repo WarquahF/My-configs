@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Install the CachyOS + Hyprland dotfiles from this repo.
 # - Symlinks repo files into ~/.config (backing up anything replaced)
-# - Wires the Hyprland waybar.lua integration without touching other config
+# - Asks before replacing someone else's existing dotfiles (all/select/abort)
+# - Wires Hyprland waybar/session integration without touching other config
 # - Never installs packages; missing deps are reported, not fetched.
+# - Rollback anytime with ./emergency-restore.sh (see config-files/).
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,20 +30,42 @@ if [[ "$missing_required" -ne 0 ]]; then
     echo "[install] install the missing packages first (e.g. sudo pacman -S waybar rofi), then re-run." >&2
     exit 1
 fi
-for opt in nmcli nmtui pactl pavucontrol loginctl systemctl python3 grim slurp wl-copy jq swappy satty; do
+for opt in nmcli nmtui pactl pavucontrol loginctl systemctl python3 grim slurp wl-copy jq swappy satty wf-recorder wlogout hyprlock; do
     command -v "$opt" >/dev/null 2>&1 || warn "optional tool missing: $opt (some bar actions degrade gracefully)"
 done
+command -v wlogout >/dev/null 2>&1 || warn "wlogout not installed: power button falls back to rofi (sudo pacman -S wlogout)"
+command -v hyprlock >/dev/null 2>&1 || warn "hyprlock not installed: lock falls back to loginctl (sudo pacman -S hyprlock)"
 
 # --- Helpers ----------------------------------------------------------------
+# backup_if_exists is single-shot per run: the FIRST original wins.
+# Repeated calls on the same path (e.g. autostart.lua patched 3x) must NOT
+# overwrite the pristine backup with an already-patched file.
 backup_if_exists() {
     # backup_if_exists <path>: move existing file/dir/symlink into $BACKUP_DIR.
     local target="$1"
     if [[ -e "$target" || -L "$target" ]]; then
         local rel="${target#$HOME_DIR/}"
+        if [[ -e "$BACKUP_DIR/$rel" || -L "$BACKUP_DIR/$rel" ]]; then
+            log "already backed up ~/$rel, keeping original"
+            rm -rf "$target"
+            return
+        fi
         mkdir -p "$BACKUP_DIR/$(dirname "$rel")"
         mv "$target" "$BACKUP_DIR/$rel"
         log "backed up ~/$rel"
     fi
+}
+
+# Installer mode: all = replace everything (with backup), select = ask per
+# file. Non-tty defaults to all (script-safe).
+INSTALL_MODE="all"
+ask_replace() {
+    # ask_replace <home-relative-dest>: return 0 if this file may be replaced.
+    local dest_rel="$1"
+    if [[ "$INSTALL_MODE" == "all" ]]; then return 0; fi
+    local ans
+    read -rp "[install] replace ~/$dest_rel with repo version? [y/N] " ans || return 1
+    [[ "$ans" == [yY]* ]]
 }
 
 link_file() {
@@ -56,16 +80,62 @@ link_file() {
         log "already linked: ~/$2"
         return
     fi
+    if [[ -e "$dest" || -L "$dest" ]]; then
+        if ! ask_replace "$2"; then
+            log "skipped ~/$2 (kept yours)"
+            return
+        fi
+    fi
     backup_if_exists "$dest"
     ln -sfn "$src" "$dest"
     log "linked ~/$2 -> $1"
 }
 
+# --- Preflight: someone else's dotfiles? Ask before touching them ------------
+conflicts=()
+for cand in .config/waybar/config.jsonc .config/waybar/style.css \
+            .config/hypr/config/waybar.lua .config/kitty/kitty.conf \
+            .config/btop/btop.conf .config/mako/config .config/rofi/config.rasi; do
+    if [[ -e "$HOME_DIR/$cand" || -L "$HOME_DIR/$cand" ]]; then
+        # Ours already? then not a conflict.
+        case "$cand" in
+            .config/waybar/config.jsonc) repo_src="$REPO_DIR/waybar/config.jsonc" ;;
+            .config/waybar/style.css) repo_src="$REPO_DIR/waybar/style.css" ;;
+            .config/hypr/config/waybar.lua) repo_src="$REPO_DIR/hypr/config/waybar.lua" ;;
+            .config/kitty/kitty.conf) repo_src="$REPO_DIR/kitty/kitty.conf" ;;
+            .config/btop/btop.conf) repo_src="$REPO_DIR/btop/btop.conf" ;;
+            .config/mako/config) repo_src="$REPO_DIR/mako/config" ;;
+            *) repo_src="" ;;
+        esac
+        if [[ -n "$repo_src" && -L "$HOME_DIR/$cand" && "$(readlink "$HOME_DIR/$cand")" == "$repo_src" ]]; then
+            continue
+        fi
+        # Real file (not symlink) = someone's dotfiles.
+        if [[ ! -L "$HOME_DIR/$cand" ]]; then conflicts+=("$cand"); fi
+    fi
+done
+if (( ${#conflicts[@]} > 0 )) && [[ -t 0 ]]; then
+    echo "[install] existing configs found that this would replace (backed up, never deleted):"
+    printf '  - ~/%s\n' "${conflicts[@]}"
+    echo "[install] installing can remove/replace some or all of your current configs (originals go to $BACKUP_DIR)."
+    PS3="[install] replace? (1=all 2=ask-per-file 3=abort) "
+    select choice in "all (recommended, with backup)" "ask me per file" "abort"; do
+        case "$REPLY" in
+            1) INSTALL_MODE="all"; break ;;
+            2) INSTALL_MODE="select"; break ;;
+            3) echo "[install] aborted, nothing changed."; exit 0 ;;
+            *) echo "pick 1, 2 or 3." ;;
+        esac
+    done
+fi
+
 # --- Directories --------------------------------------------------------------
 mkdir -p "$HOME_DIR/.config/waybar/scripts" "$HOME_DIR/.config/hypr/config" \
          "$HOME_DIR/.config/kitty" "$HOME_DIR/.config/btop" \
          "$HOME_DIR/.config/mako" "$HOME_DIR/.config/rofi" \
-         "$HOME_DIR/Pictures/Wallpapers" "$HOME_DIR/Pictures/Screenshots"
+         "$HOME_DIR/.config/wlogout" \
+         "$HOME_DIR/Pictures/Wallpapers" "$HOME_DIR/Pictures/Screenshots" \
+         "$HOME_DIR/Videos/Recordings"
 
 # --- Waybar -------------------------------------------------------------------
 link_file "waybar/config.jsonc" ".config/waybar/config.jsonc"
@@ -79,21 +149,47 @@ log "waybar scripts are executable"
 
 # --- Hyprland: blur layerrule only, existing config untouched -----------------
 link_file "hypr/config/waybar.lua" ".config/hypr/config/waybar.lua"
+link_file "hypr/config/capture.lua" ".config/hypr/config/capture.lua"
+link_file "hypr/config/session.lua" ".config/hypr/config/session.lua"
+mkdir -p "$HOME_DIR/.config/hypr/scripts"
+link_file "hypr/scripts/cursor-wiggle.py" ".config/hypr/scripts/cursor-wiggle.py"
+chmod +x "$REPO_DIR/hypr/scripts/cursor-wiggle.py"
 
 HYPR_MAIN="$HOME_DIR/.config/hypr/hyprland.lua"
 if [[ -f "$HYPR_MAIN" ]]; then
-    if grep -q 'require("config.waybar")' "$HYPR_MAIN"; then
-        log "hyprland.lua already requires config.waybar"
+    # Single backup covers all require lines below (originals are moved, never deleted).
+    if grep -q 'require("config.waybar")' "$HYPR_MAIN" \
+    && grep -q 'require("config.capture")' "$HYPR_MAIN" \
+    && grep -q 'require("config.session")' "$HYPR_MAIN"; then
+        log "hyprland.lua already requires config.waybar + config.capture + config.session"
     else
         backup_if_exists "$HYPR_MAIN"
-        # Re-create from backup with the require added after windowrules.
+        # Re-create from backup with the requires added (order: windowrules, waybar, capture, session).
         cp "$BACKUP_DIR/.config/hypr/hyprland.lua" "$HYPR_MAIN"
-        if grep -q 'require("config.windowrules")' "$HYPR_MAIN"; then
-            sed -i '/require("config.windowrules")/a require("config.waybar")' "$HYPR_MAIN"
-        else
-            printf '\nrequire("config.waybar")\n' >> "$HYPR_MAIN"
+        if ! grep -q 'require("config.waybar")' "$HYPR_MAIN"; then
+            if grep -q 'require("config.windowrules")' "$HYPR_MAIN"; then
+                sed -i '/require("config.windowrules")/a require("config.waybar")' "$HYPR_MAIN"
+            else
+                printf '\nrequire("config.waybar")\n' >> "$HYPR_MAIN"
+            fi
+            log "added require(\"config.waybar\") to hyprland.lua"
         fi
-        log "added require(\"config.waybar\") to hyprland.lua"
+        if ! grep -q 'require("config.capture")' "$HYPR_MAIN"; then
+            if grep -q 'require("config.waybar")' "$HYPR_MAIN"; then
+                sed -i '/require("config.waybar")/a require("config.capture")' "$HYPR_MAIN"
+            else
+                printf '\nrequire("config.capture")\n' >> "$HYPR_MAIN"
+            fi
+            log "added require(\"config.capture\") to hyprland.lua"
+        fi
+        if ! grep -q 'require("config.session")' "$HYPR_MAIN"; then
+            if grep -q 'require("config.capture")' "$HYPR_MAIN"; then
+                sed -i '/require("config.capture")/a require("config.session")' "$HYPR_MAIN"
+            else
+                printf '\nrequire("config.session")\n' >> "$HYPR_MAIN"
+            fi
+            log "added require(\"config.session\") to hyprland.lua (wlogout, Noctalia untouched)"
+        fi
     fi
 else
     warn "$HYPR_MAIN not found; create it with: require(\"config.waybar\")"
@@ -123,6 +219,14 @@ if [[ -f "$AUTOSTART" ]]; then
         sed -i '/hl.exec_cmd("mako")/a \    hl.exec_cmd("awww-daemon")' "$AUTOSTART"
         log "added awww-daemon startup to autostart.lua"
     fi
+    if grep -q 'cursor-wiggle' "$AUTOSTART"; then
+        log "autostart.lua already launches cursor-wiggle"
+    else
+        backup_if_exists "$AUTOSTART"
+        cp "$BACKUP_DIR/.config/hypr/config/autostart.lua" "$AUTOSTART"
+        sed -i 's|hl.exec_cmd("awww-daemon")|hl.exec_cmd("awww-daemon")\n    hl.exec_cmd("python3 $HOME/.config/hypr/scripts/cursor-wiggle.py")|' "$AUTOSTART"
+        log "added cursor-wiggle startup to autostart.lua"
+    fi
 fi
 
 # --- mako: notification daemon (7s timeout, critical persists) -----------------
@@ -150,6 +254,16 @@ fi
 link_file "kitty/kitty.conf" ".config/kitty/kitty.conf"
 link_file "btop/btop.conf" ".config/btop/btop.conf"
 
+# --- wlogout (overlay power menu, replaces Noctalia session) ------------------
+link_file "wlogout/layout" ".config/wlogout/layout"
+link_file "wlogout/style.css" ".config/wlogout/style.css"
+for icon in "$REPO_DIR"/wlogout/icons/*.png; do
+    link_file "wlogout/icons/$(basename "$icon")" ".config/wlogout/icons/$(basename "$icon")"
+done
+
+# --- Helpers made executable (repo-side, idempotent) --------------------------
+chmod +x "$REPO_DIR/emergency-restore.sh" 2>/dev/null || true
+
 # --- Validate ------------------------------------------------------------------
 if command -v python3 >/dev/null 2>&1; then
     python3 - "$REPO_DIR/waybar/config.jsonc" <<'EOF'
@@ -165,7 +279,13 @@ bash -n "$REPO_DIR/install.sh" && log "install.sh: syntax OK"
 for script in "$REPO_DIR"/waybar/scripts/*.sh; do
     bash -n "$script" || exit 1
 done
-log "waybar scripts: syntax OK"
+bash -n "$REPO_DIR/rofi/wallpaper-picker.sh" || exit 1
+bash -n "$REPO_DIR/emergency-restore.sh" || exit 1
+log "shell scripts: syntax OK"
+if command -v python3 >/dev/null 2>&1; then
+    python3 -m py_compile "$REPO_DIR/hypr/scripts/cursor-wiggle.py" \
+        && log "cursor-wiggle.py: syntax OK"
+fi
 
 log "done. Backups (if any) are in: $BACKUP_DIR"
 log "reload Hyprland (hyprctl reload) and restart waybar: pkill waybar; waybar &"
