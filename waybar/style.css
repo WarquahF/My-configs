@@ -1,9 +1,10 @@
 /* Liquid Glass Waybar — CachyOS + Hyprland
  *
  * Frosted islands over a transparent bar. The real blur comes from
- * Hyprland (see hypr/config/waybar.lua); this file only paints
- * translucent fills, a subtle border, and a soft shadow.
- * No gradients, no glow. Compact by design (1080p @ 1.5x).
+ * Hyprland (see hypr/config/waybar.lua); this file paints translucent
+ * fills + a top sheen gradient, hairline highlight, and soft shadow.
+ * Alive effects are CSS-only (gradients + opacity keyframes, no blur,
+ * no layout thrash) so 1080p @ 1.5x stays at 60fps.
  */
 
 * {
@@ -22,7 +23,7 @@ window#waybar {
 }
 
 /* --- Glass islands -------------------------------------------------- */
-/* Each section is its own frosted pill. */
+/* Each section is its own frosted pill with a liquid top-light. */
 #workspaces,
 #clock,
 #network,
@@ -34,11 +35,20 @@ window#waybar {
 #custom-awake,
 #custom-notifications,
 #custom-screenshot,
+#custom-screenrecord,
 #custom-power {
-    background: rgba(16, 18, 24, 0.55);
+    background-color: rgba(16, 18, 24, 0.55);
+    /* Sheen: bright top edge fading to clear — the "liquid" read. */
+    background-image: linear-gradient(to bottom,
+        rgba(255, 255, 255, 0.10),
+        rgba(255, 255, 255, 0.03) 42%,
+        rgba(255, 255, 255, 0.00) 58%);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 14px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    /* Inset top highlight + deep drop shadow = glass depth. */
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+                0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 #clock {
@@ -56,11 +66,12 @@ window#waybar {
 #custom-awake,
 #custom-notifications,
 #custom-screenshot,
+#custom-screenrecord,
 #custom-power {
     color: rgba(255, 255, 255, 0.88);
     padding: 4px 12px;
     margin-left: 8px;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 #network:hover,
@@ -72,9 +83,33 @@ window#waybar {
 #custom-awake:hover,
 #custom-notifications:hover,
 #custom-screenshot:hover,
+#custom-screenrecord:hover,
 #custom-power:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.12);
+    background-image: linear-gradient(to bottom,
+        rgba(255, 255, 255, 0.16),
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(255, 255, 255, 0.00) 70%);
+    border-color: rgba(255, 255, 255, 0.22);
     color: #ffffff;
+}
+
+/* Alive: soft shine sweep on hover via border glow (GPU-cheap, no layout). */
+#clock:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.20);
+}
+
+/* Pulse keyframes — GTK syntax (from/to + %), background-only, 60fps safe. */
+@keyframes pulse-red {
+    from { background-color: rgba(200, 80, 80, 0.25); }
+    50% { background-color: rgba(200, 80, 80, 0.42); }
+    to { background-color: rgba(200, 80, 80, 0.25); }
+}
+@keyframes pulse-amber {
+    from { background-color: rgba(240, 192, 112, 0.14); }
+    50% { background-color: rgba(240, 192, 112, 0.24); }
+    to { background-color: rgba(240, 192, 112, 0.14); }
 }
 
 /* --- Workspaces ------------------------------------------------------ */
@@ -92,11 +127,16 @@ window#waybar {
     transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-/* Active workspace: the distinct glass pill. */
+/* Active workspace: the distinct glass pill with liquid shine. */
 #workspaces button.active {
     color: #ffffff;
-    background: rgba(255, 255, 255, 0.16);
-    border-color: rgba(255, 255, 255, 0.14);
+    background-color: rgba(255, 255, 255, 0.16);
+    background-image: linear-gradient(to bottom,
+        rgba(255, 255, 255, 0.14),
+        rgba(255, 255, 255, 0.04) 55%,
+        rgba(255, 255, 255, 0.00));
+    border-color: rgba(255, 255, 255, 0.20);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
 /* Hover stays visible but quieter than active. */
@@ -137,6 +177,7 @@ window#waybar {
     color: #f09393;
     background: rgba(200, 80, 80, 0.25);
     border-color: rgba(255, 140, 140, 0.4);
+    animation: pulse-red 1.6s ease-in-out infinite;
 }
 
 #battery.charging,
@@ -149,6 +190,7 @@ window#waybar {
     color: #f09393;
     background: rgba(200, 80, 80, 0.25);
     border-color: rgba(255, 140, 140, 0.4);
+    animation: pulse-red 1.6s ease-in-out infinite;
 }
 
 /* Keep-awake toggle: dim when off, warm amber pill when holding the PC awake. */
@@ -161,6 +203,11 @@ window#waybar {
     color: #f0c070;
     background: rgba(240, 192, 112, 0.14);
     border-color: rgba(240, 192, 112, 0.35);
+    background-image: linear-gradient(to bottom,
+        rgba(240, 192, 112, 0.18),
+        rgba(240, 192, 112, 0.05) 55%,
+        transparent);
+    animation: pulse-amber 2.4s ease-in-out infinite;
 }
 
 /* Notification bell: dim when clear, bright with unread waiting. */
@@ -179,6 +226,19 @@ window#waybar {
 #custom-screenshot {
     color: rgba(255, 255, 255, 0.75);
     padding: 4px 13px;
+}
+
+/* Screen recorder: quiet when idle, red pill while recording. */
+#custom-screenrecord {
+    color: rgba(255, 255, 255, 0.75);
+    padding: 4px 13px;
+}
+
+#custom-screenrecord.recording {
+    color: #f09393;
+    background: rgba(200, 80, 80, 0.25);
+    border-color: rgba(255, 140, 140, 0.4);
+    animation: pulse-red 1.2s ease-in-out infinite;
 }
 
 /* Power button: quiet until hovered. */

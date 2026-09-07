@@ -1,13 +1,16 @@
 # Hyprland integration
 
-This repo ships one Hyprland file: `config/waybar.lua`.
+This repo ships three Hyprland files: `config/waybar.lua` (blur rules),
+`config/capture.lua` (volume key binds) and `config/session.lua`
+(wlogout/lock/power keybinds).
 Everything else in `~/.config/hypr/` is left untouched.
 
 ## What it does
 
 - Adds a `waybar` layer rule enabling Hyprland blur behind the bar
   (the frosted-glass effect; Waybar CSS alone cannot blur).
-- Adds the same treatment for the `rofi` layer used by the power menu.
+- Adds the same treatment for the `rofi` and `wlogout` layers used by
+  the menus and the power overlay.
 
 Blur strength itself stays in your existing
 `~/.config/hypr/config/decorations.lua` (`decoration.blur`).
@@ -20,6 +23,8 @@ Noctalia stays disabled — nothing here references it.
 
 ```lua
 require("config.waybar")
+require("config.capture")
+require("config.session")
 ```
 
 Waybar autostart is the existing line in

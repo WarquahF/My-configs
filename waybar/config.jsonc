@@ -26,6 +26,7 @@
         "custom/awake",
         "custom/notifications",
         "custom/screenshot",
+        "custom/screenrecord",
         "custom/power"
     ],
 
@@ -33,8 +34,11 @@
     "hyprland/workspaces": {
         "format": "{name}",
         "on-click": "activate",
-        "on-scroll-up": "hyprctl dispatch workspace m-1",
-        "on-scroll-down": "hyprctl dispatch workspace m+1",
+        // NOTE: plain `hyprctl dispatch workspace …` is broken in this
+        // Hyprland Lua build (string dispatches fail core-side), so scroll
+        // uses the native Lua dispatcher object, which works.
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"m-1\"})'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"m+1\"})'",
         "sort-by-number": true,
         "persistent-workspaces": {
             "*": 5
@@ -116,9 +120,18 @@
         "on-click": "$HOME/.config/waybar/scripts/battery-info.sh"
     },
 
-    // Right: CPU temperature (x86_pkg_temp). Click opens btop's full view.
+    // Right: CPU temperature (coretemp Package id 0 — the real CPU package
+    // sensor). Detected on this machine as:
+    //   sensors coretemp-isa-0000 Package id 0 (+53°C)
+    //   /sys/class/hwmon/hwmon3 (name=coretemp, device=platform/coretemp.0)
+    //   /temp1_input = Package. temp2/3 = Core 0/1.
+    // Alternatives rejected: SEN1-5 (board, 0-51°C noise), nvme Composite
+    // (SSD, 34°C), INT3400 (chipset, 20°C). x86_pkg_temp thermal_zone7
+    // mirrors the same package (53°C) and remains as kernel fallback.
+    // temp-info.sh resolves by driver name (coretemp → x86_pkg_temp →
+    // TCPU), never by hardcoded number, so zone/hwmon renumbering is safe.
     "temperature": {
-        "thermal-zone": 7,
+        "hwmon-path": "/sys/class/hwmon/hwmon3/temp1_input",
         "critical-threshold": 85,
         "format": "{icon} {temperatureC}°C",
         "format-icons": ["", "", "", "", ""],
@@ -160,10 +173,20 @@
         "on-click": "$HOME/.config/waybar/scripts/screenshot-menu.sh"
     },
 
-    // Right: power button. Opens the rofi power menu (no Noctalia needed).
+    // Right: screen recorder. Red dot while recording; click opens
+    // rofi menu (fullscreen / region / stop). State refreshes every 2s.
+    "custom/screenrecord": {
+        "exec": "$HOME/.config/waybar/scripts/screenrecord-menu.sh status",
+        "return-type": "json",
+        "interval": 2,
+        "on-click": "$HOME/.config/waybar/scripts/screenrecord-menu.sh"
+    },
+
+    // Right: power button. wlogout overlay (replaces Noctalia session).
+    // Falls back to rofi power-menu.sh if wlogout is missing.
     "custom/power": {
         "format": "⏻",
-        "tooltip-format": "Power menu",
-        "on-click": "$HOME/.config/waybar/scripts/power-menu.sh"
+        "tooltip-format": "Power menu (wlogout)",
+        "on-click": "sh -c 'command -v wlogout >/dev/null && wlogout -b 4 -T 400 -B 400 || $HOME/.config/waybar/scripts/power-menu.sh'"
     }
 }

@@ -14,8 +14,39 @@ if command -v sensors >/dev/null 2>&1; then
     cores="$(sensors coretemp-isa-0000 2>/dev/null | awk '/^Core [0-9]+:/ { print $1, $2, $3 }')"
     extra="$(sensors 2>/dev/null | awk '/^Composite:/ { print "SSD", $2; exit }')"
 fi
-if [[ -z "$pkg" && -r /sys/class/thermal/thermal_zone7/temp ]]; then
-    pkg="$(( $(cat /sys/class/thermal/thermal_zone7/temp) / 1000 )).0°C"
+# Robust fallback: search thermal zones by type (x86_pkg_temp preferred,
+# then TCPU), not by hardcoded number — zone numbers shift across boots.
+if [[ -z "$pkg" ]]; then
+    for z in /sys/class/thermal/thermal_zone*/; do
+        [[ -r "$z/type" && -r "$z/temp" ]] || continue
+        t="$(cat "$z/type" 2>/dev/null)"
+        if [[ "$t" == "x86_pkg_temp" ]]; then
+            pkg="$(( $(cat "$z/temp") / 1000 )).0°C"
+            break
+        fi
+    done
+fi
+if [[ -z "$pkg" ]]; then
+    for z in /sys/class/thermal/thermal_zone*/; do
+        [[ -r "$z/type" && -r "$z/temp" ]] || continue
+        t="$(cat "$z/type" 2>/dev/null)"
+        if [[ "$t" == "TCPU" ]]; then
+            raw="$(cat "$z/temp" 2>/dev/null)"
+            # TCPU reports millidegree on this machine (54050 = 54°C).
+            if (( raw > 1000 )); then pkg="$(( raw / 1000 )).0°C";
+            else pkg="${raw}.0°C"; fi
+            break
+        fi
+    done
+fi
+# Last resort: coretemp hwmon by driver name, not hwmon number.
+if [[ -z "$pkg" ]]; then
+    for h in /sys/class/hwmon/hwmon*/; do
+        [[ "$(cat "$h/name" 2>/dev/null)" == "coretemp" && -r "$h/temp1_input" ]] || continue
+        raw="$(cat "$h/temp1_input" 2>/dev/null)"
+        pkg="$(( raw / 1000 )).0°C"
+        break
+    done
 fi
 if [[ -z "$pkg" ]]; then
     echo "No CPU sensor found" >&2; exit 1

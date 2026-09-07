@@ -21,6 +21,14 @@ hl.layer_rule({
     ignore_alpha = 0.3,
 })
 
+-- wlogout power overlay (replaces Noctalia session). Layer-shell overlay:
+-- appears above Waybar/desktop, reserves no space, moves/resizes nothing.
+hl.layer_rule({
+    match = { namespace = "wlogout" },
+    blur = true,
+    ignore_alpha = 0.3,
+})
+
 -- Dropdown info panels (temp-info.sh / mem-info.sh --popup, launched as
 -- `kitty --class waybar-dropdown`). Small floating windows pinned under
 -- the top-right bar cluster (bar bottom ~= 48px). Sizes are tuned per
