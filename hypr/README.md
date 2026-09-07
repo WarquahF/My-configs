@@ -9,7 +9,8 @@ This repo ships these Hyprland files:
 | `config/session.lua` | wlogout / lock / power keybinds |
 | `config/navigation.lua` | Alt+Tab window switcher |
 | `config/wallpaper.lua` | wallpaper scroll + cycle keybinds |
-| `config/matugen.lua` | fallback accent (copied — matugen regenerates it, optional `require("config.matugen")`) |
+| `config/tiling.lua` | how the dwindle layout moves + the focus glow |
+| `config/matugen.lua` | current accent (generated — see below) |
 | `hyprlock.conf` | the lock screen |
 
 Everything else in `~/.config/hypr/` is left untouched — in particular
@@ -46,6 +47,56 @@ dead. Rather than editing your `binds.lua`, these modules are required
 Every audio and media bind carries `{ locked = true }`, so it keeps working
 on the lock screen. That is deliberate: locking does not pause audio, so you
 need to be able to adjust volume and skip tracks without unlocking.
+
+## Tiling feel (`config/tiling.lua`)
+
+Your `animations.lua` and `decorations.lua` keep owning the **static** look —
+gaps, rounding, opacity, blur, border colours. `tiling.lua` is required after
+them and overrides only the **motion**, so deleting its require line restores
+your settings on the next reload.
+
+- **Tiles settle instead of teleporting.** `windowsMove` runs on a spring
+  that overshoots slightly and comes back, so every reflow — opening,
+  closing, swapping, resizing a neighbour — reads as weight rather than a
+  redraw somewhere else.
+- **Windows scale into their slot** (`popin 85%`) instead of flying in from a
+  screen edge, and closing reverses it.
+- **Focus reacts**: the border colour eases, and the gradient sweeps once
+  when focus lands.
+- **The focused window is lit in the wallpaper's accent colour**
+  (`decoration.glow`), and that colour changes as you scroll wallpapers —
+  see below.
+- **Dwindle ergonomics**: `preserve_split` keeps a container's orientation
+  when a sibling closes; `smart_resizing` resizes the edge you are pulling.
+  Floating windows snap to neighbours and screen edges.
+
+It is deliberately motion-first. This machine is Intel UHD G4 driving
+1920x1080 with `blur.passes = 4`, so there is little per-frame headroom:
+everything here costs only while something is moving. The two effects that
+would cost every frame are handled accordingly — `borderangle` runs `once`
+per focus change rather than `loop` (a loop repaints forever, on battery
+too), and `decoration.motion_blur` ships **off**, with a commented one-liner
+at the bottom of the file if you want to try it.
+
+## The accent follows the wallpaper
+
+`waybar/scripts/wallpaper-theme.sh` already derived a Waybar palette from
+each wallpaper. It now applies that same accent to Hyprland:
+
+1. writes it to `~/.config/hypr/config/matugen.lua`, which `tiling.lua`
+   reads, so the glow survives a reload;
+2. pushes it to the running compositor so the change is immediate.
+
+That second step uses `hyprctl eval` with an `hl.config{}` call, not
+`hyprctl keyword` — this Lua-config build rejects keywords outright:
+
+```
+$ hyprctl keyword decoration:glow:color "rgba(e67946ff)"
+keyword can't work with non-legacy parsers. Use eval.
+```
+
+With matugen installed its own hypr template writes the same file and its
+post_hook reloads Hyprland, so the accent follows the wallpaper either way.
 
 ## Lock screen (`hyprlock.conf`)
 

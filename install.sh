@@ -117,7 +117,7 @@ done
 # Hyprland modules this repo owns. HYPR_MODULES doubles as the list of
 # require("config.<name>") lines install.sh keeps in hyprland.lua below, so a
 # new module only has to be named once.
-HYPR_MODULES=(waybar capture session navigation wallpaper)
+HYPR_MODULES=(waybar capture session navigation wallpaper tiling)
 for m in "${HYPR_MODULES[@]}"; do
     add_link "hypr/config/$m.lua" ".config/hypr/config/$m.lua"
 done

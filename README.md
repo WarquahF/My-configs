@@ -41,7 +41,8 @@ Noctalia is intentionally disabled and nothing here depends on it.
 │   │   ├── session.lua         # wlogout/lock/power keybinds
 │   │   ├── navigation.lua      # Alt+Tab window switcher
 │   │   ├── wallpaper.lua       # wallpaper scroll + cycle keybinds
-│   │   └── matugen.lua         # fallback accent (copied; matugen regenerates)
+│   │   ├── tiling.lua          # how tiles move + wallpaper-coloured focus glow
+│   │   └── matugen.lua         # current accent (copied; regenerated per wallpaper)
 │   ├── hyprlock.conf           # lock screen: current wallpaper + now playing
 │   └── scripts/cursor-wiggle.py # shake-to-find-cursor daemon
 ├── sway/
@@ -218,6 +219,27 @@ Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
 - Hibernate is intentionally omitted: this machine only has zram swap.
 - Keybinds live in `hypr/config/session.lua` (Hyprland) and `sway/config`
   (Sway); `binds.lua` is untouched.
+
+## Tiling (Hyprland dwindle)
+
+- **Tiles settle instead of teleporting.** Every reflow — opening, closing,
+  swapping, resizing a neighbour — springs into place with a slight
+  overshoot, so the layout has weight.
+- **Windows scale into their slot** rather than sliding in from a screen
+  edge; closing reverses it. Focus eases the border and sweeps its gradient
+  once.
+- **The focused window is lit in the wallpaper's accent colour**, and it
+  re-lights live as you scroll wallpapers — the same accent Waybar takes.
+- `preserve_split` keeps a container's orientation when a sibling closes,
+  `smart_resizing` resizes the edge you pull, and floating windows snap to
+  neighbours and screen edges.
+- Motion-first on purpose: this is Intel UHD G4 at 1920x1080 with
+  `blur.passes = 4`, so effects that would cost every frame are avoided —
+  the border gradient sweeps `once` per focus change rather than looping,
+  and motion blur ships off behind a commented one-liner.
+- All of it lives in `hypr/config/tiling.lua`, which overrides only motion.
+  Your `animations.lua` / `decorations.lua` keep owning gaps, rounding,
+  opacity, blur and border colours; delete the require line to revert.
 
 ## Lock screen (hyprlock)
 

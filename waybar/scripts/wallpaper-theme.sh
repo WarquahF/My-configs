@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Recolor Waybar from a wallpaper, then ask Waybar to reload its animated CSS.
+# Recolor the desktop from a wallpaper: Waybar's palette and Hyprland's
+# focused-window glow, so scrolling wallpapers re-lights both.
 # Uses Matugen when available; otherwise derives a compact dark palette with
 # Python + Pillow. Usage: wallpaper-theme.sh /path/to/wallpaper
 set -euo pipefail
@@ -12,6 +13,8 @@ fi
 
 # Matugen remains the preferred full-desktop theming path. Its configured
 # Waybar post-hook reloads the bar after atomically regenerating matugen.css.
+# Its hypr template writes the same accent file this script writes below, and
+# its post_hook reloads Hyprland, so the glow follows the wallpaper there too.
 if command -v matugen >/dev/null 2>&1; then
     matugen image "$IMAGE"
     exit 0
@@ -106,3 +109,33 @@ PY
 mv -f "$TMP" "$OUTPUT"
 trap - EXIT
 pkill -SIGUSR2 -x waybar 2>/dev/null || true
+
+# --- Hyprland: the same accent lights the focused window ---------------------
+# Read back from the file just written rather than passing the colour out of
+# the Python block separately, so there is one source for the accent.
+accent="$(sed -n 's/^@define-color accent #\([0-9a-fA-F]\{6\}\);$/\1/p' "$OUTPUT")"
+if [[ -n "$accent" ]]; then
+    # Persist it where hypr/config/tiling.lua reads it (matugen's hypr
+    # template writes this same file), so the glow survives a reload.
+    accent_lua="$CONFIG_HOME/hypr/config/matugen.lua"
+    if [[ -d "${accent_lua%/*}" ]]; then
+        accent_tmp="$(mktemp "$accent_lua.tmp.XXXXXX")"
+        cat > "$accent_tmp" <<EOF
+-- Generated from ${IMAGE##*/} by wallpaper-theme.sh.
+-- Read by config/tiling.lua for the focused-window glow.
+local M = {
+    accent = "0xff$accent",
+}
+return M
+EOF
+        mv -f "$accent_tmp" "$accent_lua"
+    fi
+    # Apply to the running compositor too, so the glow changes with the
+    # wallpaper instead of at the next reload. This build parses Lua, not
+    # legacy keywords -- `hyprctl keyword` answers "keyword can't work with
+    # non-legacy parsers. Use eval.\" -- hence hl.config through eval.
+    if command -v hyprctl >/dev/null 2>&1; then
+        hyprctl eval "hl.config({ decoration = { glow = { color = \"rgba(${accent}ff)\" } } })" \
+            >/dev/null 2>&1 || true
+    fi
+fi
