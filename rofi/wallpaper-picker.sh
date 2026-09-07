@@ -3,7 +3,8 @@
 # Opens a horizontal rofi card browser (thumbnails, keyboard/mouse/trackpad),
 # applies the pick with an animated awww transition.
 #
-#   wallpaper-picker.sh                  browse (category menu, then browser)
+#   wallpaper-picker.sh                  browse EVERY wallpaper at once (flat)
+#   wallpaper-picker.sh --menu           category menu first, then the browser
 #   wallpaper-picker.sh --browse <cat>  open the browser directly on a scope
 #   wallpaper-picker.sh --random [cat]   apply a random static wallpaper
 #   wallpaper-picker.sh --build-cache    (re)scan library + build thumbnails
@@ -30,7 +31,7 @@ WALLPAPER_DIR="$(resolve_wallpaper_dir)"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/wallpaper-picker"
 THUMB_DIR="$CACHE_DIR/thumbs"
 LIBRARY="$CACHE_DIR/library.tsv"
-SCAN_STAMP="$CACHE_DIR/scan.stamp"
+SCAN_STAMP="$CACHE_DIR/scan.stamp"   # holds a library signature (see below)
 THUMB_SIZE=360
 THEME="$HOME/.config/rofi/wallpaper.rasi"
 MENU_THEME="$HOME/.config/rofi/wallpaper-menu.rasi"
@@ -67,29 +68,34 @@ is_static_image() {
     esac
 }
 
+# A fingerprint of the whole library: every file's path, mtime and size.
+# Comparing this (not just the newest mtime) makes the cache notice deletions
+# and files copied in with an older timestamp — both invisible to a
+# newest-mtime-only check, which can only ever move forward.
+library_signature() {
+    find "$WALLPAPER_DIR" -type f -printf '%p\t%T@\t%s\n' 2>/dev/null \
+        | LC_ALL=C sort | sha1sum | cut -d' ' -f1
+}
+
 scan_library() {
     mkdir -p "$CACHE_DIR"
-    local tmp newest=0 f rel mtime cat
+    local tmp f rel mtime cat
     tmp="$(mktemp)"
     while IFS= read -r -d '' f; do
         is_static_image "$f" || continue
         rel="${f#$WALLPAPER_DIR/}"
         mtime="$(stat -c %Y "$f")"
-        (( mtime > newest )) && newest="$mtime"
         if [[ "$rel" == */* ]]; then cat="${rel%%/*}"; else cat="Top level"; fi
         printf '%s\t%s\t%s\n' "$f" "$mtime" "$cat" >> "$tmp"
     done < <(find "$WALLPAPER_DIR" -type f -print0 2>/dev/null)
     LC_ALL=C sort -t$'\t' -k3,3 -k1,1 -o "$LIBRARY" "$tmp"
     rm -f "$tmp"
-    printf '%s\n' "$newest" > "$SCAN_STAMP"
+    library_signature > "$SCAN_STAMP"
 }
 
 library_fresh() {
     [[ -f "$LIBRARY" && -f "$SCAN_STAMP" ]] || return 1
-    local stamp newest
-    stamp="$(cat "$SCAN_STAMP")"
-    newest="$(find "$WALLPAPER_DIR" -type f -printf '%T@\n' 2>/dev/null | sort -rn | head -n1 | cut -d. -f1)"
-    [[ -n "$newest" && "$newest" -le "$stamp" ]]
+    [[ "$(cat "$SCAN_STAMP" 2>/dev/null)" == "$(library_signature)" ]]
 }
 
 # --- thumbnails: 360px JPEGs keyed by path hash, rebuilt when stale ---------
@@ -209,9 +215,12 @@ case "${1:-}" in
     --build-cache) build_cache ;;
     --browse)      browse "${2:-ALL}" ;;
     --random)      random_wallpaper "${2:-ALL}" ;;
-    "")
+    # Default: one flat carousel of every wallpaper, no folder step.
+    "")            browse "ALL" ;;
+    # Opt-in category menu (folders first), for large mixed libraries.
+    --menu)
         scope="$(pick_category)" || exit 0
         if [[ "$scope" == "RANDOM" ]]; then random_wallpaper "ALL"; else browse "$scope"; fi
         ;;
-    *) echo "usage: wallpaper-picker.sh [--browse <cat>|--build-cache|--random [category]]" >&2; exit 1 ;;
+    *) echo "usage: wallpaper-picker.sh [--menu|--browse <cat>|--build-cache|--random [category]]" >&2; exit 1 ;;
 esac

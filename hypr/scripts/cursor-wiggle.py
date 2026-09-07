@@ -60,11 +60,13 @@ def is_wiggle(samples):
     reversals = 0
     leg = 0.0
     last_sign = 0
-    prev = pts[0]
+    # pts hold (t, x, y); track the previous point as (x, y) so the first
+    # iteration measures real displacement, not x-minus-timestamp.
+    prev_x, prev_y = pts[0][1], pts[0][2]
     for _, x, y in pts[1:]:
-        dx = x - prev[0]
-        path += math.hypot(dx, y - prev[1])
-        prev = (x, y)
+        dx = x - prev_x
+        path += math.hypot(dx, y - prev_y)
+        prev_x, prev_y = x, y
         if abs(dx) < 2.0:
             continue
         sign = 1 if dx > 0 else -1

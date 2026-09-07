@@ -2,8 +2,16 @@
 # Screen recorder menu for Waybar (click the record icon).
 # Rofi UI over wf-recorder: fullscreen, region, stop.
 # Saves to ~/Videos/Recordings/ as .mp4 — watch in any player, export anywhere.
+#
+# Captures the SYSTEM AUDIO your PC is playing (Spotify, browser, games, etc.)
+# by recording the monitor source of the current default sink — i.e. exactly
+# what you hear, not a microphone. Choose with SCREENREC_AUDIO:
+#   system  (default)  what the PC is playing (default sink's .monitor)
+#   none               video only, no audio
+#   <source-name>      a specific PulseAudio/PipeWire source (mic, etc.)
+#
 # Requires: rofi, wf-recorder (sudo pacman -S wf-recorder).
-# Optional: slurp (region), notify-send.
+# Optional: slurp (region), pactl (system-audio capture), notify-send.
 # Usage: screenrecord-menu.sh          -> rofi menu
 #        screenrecord-menu.sh status   -> JSON for waybar (return-type json)
 #        screenrecord-menu.sh toggle   -> start fullscreen / stop if recording
@@ -31,6 +39,29 @@ ICON_STOP="󰓛"
 
 is_recording() { pgrep -x wf-recorder >/dev/null 2>&1; }
 
+# Audio to capture — "what the PC is playing" by default (see header).
+AUDIO_MODE="${SCREENREC_AUDIO:-system}"
+
+# Echo the wf-recorder audio flag for AUDIO_MODE, or nothing (video only).
+# "system" = the monitor of the current default sink = desktop playback.
+audio_args() {
+    case "$AUDIO_MODE" in
+        none|off) return 0 ;;
+        system)
+            command -v pactl >/dev/null 2>&1 || { notify "pactl not installed — recording video only"; return 0; }
+            local sink mon=""
+            sink="$(pactl get-default-sink 2>/dev/null || true)"
+            if [[ -n "$sink" ]] && pactl list short sources 2>/dev/null | grep -qF "${sink}.monitor"; then
+                mon="${sink}.monitor"
+            else
+                mon="$(pactl list short sources 2>/dev/null | awk '$2 ~ /\.monitor$/ { print $2; exit }' || true)"
+            fi
+            if [[ -n "$mon" ]]; then printf '%s' "--audio=$mon"; else notify "No output monitor found — recording video only"; fi
+            ;;
+        *) printf '%s' "--audio=$AUDIO_MODE" ;;
+    esac
+}
+
 need_recorder() {
     if ! command -v wf-recorder >/dev/null 2>&1; then
         notify "wf-recorder is not installed (sudo pacman -S wf-recorder)"
@@ -44,9 +75,10 @@ start_full() {
     is_recording && { notify "Already recording — stop it first"; exit 0; }
     countdown
     local file="$DIR/Recording-$(date +%Y%m%d-%H%M%S).mp4"
-    wf-recorder -f "$file" >/dev/null 2>&1 &
+    local audio; audio="$(audio_args)"
+    wf-recorder ${audio:+"$audio"} -f "$file" >/dev/null 2>&1 &
     printf '%s' "$file" > "$STATE_FILE"
-    notify "Recording fullscreen… (click icon to stop)"
+    notify "Recording fullscreen${audio:+ + system audio}… (click icon to stop)"
 }
 
 start_region() {
@@ -61,9 +93,10 @@ start_region() {
     [[ -z "$geo" ]] && exit 0
     countdown
     file="$DIR/Recording-$(date +%Y%m%d-%H%M%S).mp4"
-    wf-recorder -g "$geo" -f "$file" >/dev/null 2>&1 &
+    local audio; audio="$(audio_args)"
+    wf-recorder ${audio:+"$audio"} -g "$geo" -f "$file" >/dev/null 2>&1 &
     printf '%s' "$file" > "$STATE_FILE"
-    notify "Recording region… (click icon to stop)"
+    notify "Recording region${audio:+ + system audio}… (click icon to stop)"
 }
 
 stop_recording() {

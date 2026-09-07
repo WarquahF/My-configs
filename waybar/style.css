@@ -30,7 +30,7 @@ window#waybar {
 #bluetooth,
 #pulseaudio,
 #battery,
-#temperature,
+#custom-temperature,
 #memory,
 #custom-awake,
 #custom-notifications,
@@ -61,7 +61,7 @@ window#waybar {
 #bluetooth,
 #pulseaudio,
 #battery,
-#temperature,
+#custom-temperature,
 #memory,
 #custom-awake,
 #custom-notifications,
@@ -78,7 +78,7 @@ window#waybar {
 #bluetooth:hover,
 #pulseaudio:hover,
 #battery:hover,
-#temperature:hover,
+#custom-temperature:hover,
 #memory:hover,
 #custom-awake:hover,
 #custom-notifications:hover,
@@ -186,7 +186,7 @@ window#waybar {
 }
 
 /* CPU over the critical threshold (85 °C) reads as an alert. */
-#temperature.critical {
+#custom-temperature.critical {
     color: #f09393;
     background: rgba(200, 80, 80, 0.25);
     border-color: rgba(255, 140, 140, 0.4);

@@ -29,8 +29,14 @@ if [[ "${1:-}" != "--yes" ]]; then
     read -rp "[emergency] restore these files? [y/N] " ans
     [[ "$ans" == [yY]* ]] || { echo "aborted."; exit 0; }
 fi
-# Remove our symlinks first so `cp` writes real files, not through links.
-while IFS= read -r -d '' link; do rm -f "$link"; done < <(find "$HOME_DIR/.config" -xtype l -print0 2>/dev/null || true)
+# Remove the symlink at each path THIS backup will restore, so `cp` writes a
+# real file instead of following (and overwriting through) the link. Scoped to
+# the backed-up paths only — unrelated symlinks elsewhere in ~/.config, broken
+# or not, are never touched.
+while IFS= read -r -d '' src; do
+    dest="$HOME_DIR/.config/${src#"$BACKUP"/.config/}"
+    [[ -L "$dest" ]] && rm -f "$dest"
+done < <(find "$BACKUP/.config" -type f -print0 2>/dev/null || true)
 cp -a "$BACKUP"/.config/. "$HOME_DIR/.config/"
 echo "[emergency] restored from $BACKUP"
 hyprctl reload 2>/dev/null || true

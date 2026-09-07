@@ -10,6 +10,10 @@ C_HDR=$'\e[1;36m' C_DIM=$'\e[2m' C_OFF=$'\e[0m'
 
 read -r total used avail < <(free -m | awk '/^Mem:/ { print $2, $3, $7 }')
 read -r stot sused < <(free -m | awk '/^Swap:/ { print $2, $3 }')
+if ! [[ "${total:-}" =~ ^[0-9]+$ ]] || (( total == 0 )); then
+    echo "mem-info.sh: could not read memory totals from free(1)" >&2
+    exit 1
+fi
 pct=$(( used * 100 / total ))
 gib() { awk -v m="$1" 'BEGIN { printf "%.1f", m/1024 }'; }
 

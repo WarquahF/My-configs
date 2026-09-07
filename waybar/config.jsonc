@@ -21,7 +21,7 @@
         "bluetooth",
         "pulseaudio",
         "battery",
-        "temperature",
+        "custom/temperature",
         "memory",
         "custom/awake",
         "custom/notifications",
@@ -120,22 +120,16 @@
         "on-click": "$HOME/.config/waybar/scripts/battery-info.sh"
     },
 
-    // Right: CPU temperature (coretemp Package id 0 — the real CPU package
-    // sensor). Detected on this machine as:
-    //   sensors coretemp-isa-0000 Package id 0 (+53°C)
-    //   /sys/class/hwmon/hwmon3 (name=coretemp, device=platform/coretemp.0)
-    //   /temp1_input = Package. temp2/3 = Core 0/1.
-    // Alternatives rejected: SEN1-5 (board, 0-51°C noise), nvme Composite
-    // (SSD, 34°C), INT3400 (chipset, 20°C). x86_pkg_temp thermal_zone7
-    // mirrors the same package (53°C) and remains as kernel fallback.
-    // temp-info.sh resolves by driver name (coretemp → x86_pkg_temp →
-    // TCPU), never by hardcoded number, so zone/hwmon renumbering is safe.
-    "temperature": {
-        "hwmon-path": "/sys/class/hwmon/hwmon3/temp1_input",
-        "critical-threshold": 85,
-        "format": "{icon} {temperatureC}°C",
-        "format-icons": ["", "", "", "", ""],
-        "tooltip-format": "CPU package: {temperatureC}°C",
+    // Right: CPU package temperature. Driven by temp-info.sh, which resolves
+    // the coretemp "Package id 0" sensor by driver name / thermal-zone type
+    // (coretemp → x86_pkg_temp → TCPU → coretemp hwmon), never by a hardcoded
+    // hwmonN index — so zone/hwmon renumbering across boots or hardware is
+    // safe, and the bar can never disagree with the click popup (same script).
+    // Emits {icon} {temperatureC}°C plus a `critical` class past 85°C.
+    "custom/temperature": {
+        "exec": "$HOME/.config/waybar/scripts/temp-info.sh --status",
+        "return-type": "json",
+        "interval": 10,
         "on-click": "kitty --class waybar-dropdown --title 'CPU Temp' -e $HOME/.config/waybar/scripts/temp-info.sh --popup"
     },
 
