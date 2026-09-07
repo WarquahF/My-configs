@@ -30,7 +30,7 @@ if [[ "$missing_required" -ne 0 ]]; then
     echo "[install] install the missing packages first (e.g. sudo pacman -S waybar rofi), then re-run." >&2
     exit 1
 fi
-for opt in nmcli nmtui pactl pavucontrol loginctl systemctl python3 grim slurp wl-copy jq swappy satty wf-recorder wlogout hyprlock sway swaylock swayidle swaybg swaymsg matugen sddm; do
+for opt in nmcli nmtui pactl pavucontrol playerctl loginctl systemctl python3 grim slurp wl-copy jq swappy satty wf-recorder wlogout hyprlock sway swaylock swayidle swaybg swaymsg matugen sddm; do
     command -v "$opt" >/dev/null 2>&1 || warn "optional tool missing: $opt (some bar actions degrade gracefully)"
 done
 command -v wlogout >/dev/null 2>&1 || warn "wlogout not installed: power button falls back to rofi (sudo pacman -S wlogout)"
@@ -114,11 +114,16 @@ add_link "waybar/style.css"         ".config/waybar/style.css"
 for f in "$REPO_DIR"/waybar/scripts/*.sh; do
     add_link "waybar/scripts/$(basename "$f")" ".config/waybar/scripts/$(basename "$f")"
 done
-add_link "hypr/config/waybar.lua"        ".config/hypr/config/waybar.lua"
-add_link "hypr/config/capture.lua"       ".config/hypr/config/capture.lua"
-add_link "hypr/config/session.lua"       ".config/hypr/config/session.lua"
-add_link "hypr/config/navigation.lua"    ".config/hypr/config/navigation.lua"
+# Hyprland modules this repo owns. HYPR_MODULES doubles as the list of
+# require("config.<name>") lines install.sh keeps in hyprland.lua below, so a
+# new module only has to be named once.
+HYPR_MODULES=(waybar capture session navigation wallpaper)
+for m in "${HYPR_MODULES[@]}"; do
+    add_link "hypr/config/$m.lua" ".config/hypr/config/$m.lua"
+done
+add_link "hypr/hyprlock.conf"            ".config/hypr/hyprlock.conf"
 add_link "hypr/scripts/cursor-wiggle.py" ".config/hypr/scripts/cursor-wiggle.py"
+add_link "hypr/scripts/now-playing.sh"   ".config/hypr/scripts/now-playing.sh"
 add_link "kitty/kitty.conf" ".config/kitty/kitty.conf"
 add_link "btop/btop.conf"   ".config/btop/btop.conf"
 add_link "mako/config"      ".config/mako/config"
@@ -200,54 +205,44 @@ done
 # Executable bits (repo-side; the symlinks inherit them).
 chmod +x "$REPO_DIR"/waybar/scripts/*.sh
 chmod +x "$REPO_DIR/hypr/scripts/cursor-wiggle.py"
+chmod +x "$REPO_DIR/hypr/scripts/now-playing.sh"
 chmod +x "$REPO_DIR/rofi/wallpaper-picker.sh"
-log "waybar scripts, cursor-wiggle and wallpaper picker are executable"
+log "waybar scripts, hypr scripts and wallpaper picker are executable"
 
 HYPR_MAIN="$HOME_DIR/.config/hypr/hyprland.lua"
 if [[ -f "$HYPR_MAIN" ]]; then
-    # Single backup covers all require lines below (originals are moved, never deleted).
-    if grep -q 'require("config.waybar")' "$HYPR_MAIN" \
-    && grep -q 'require("config.capture")' "$HYPR_MAIN" \
-    && grep -q 'require("config.session")' "$HYPR_MAIN" \
-    && grep -q 'require("config.navigation")' "$HYPR_MAIN"; then
-        log "hyprland.lua already requires config.waybar + config.capture + config.session + config.navigation"
+    # One require line per module in HYPR_MODULES, each chained after the
+    # previous one so they land in that order (windowrules is the anchor for
+    # the first). Every module needs the same treatment, so it is one loop
+    # rather than a copy of this block per module -- adding a module means
+    # adding a name to HYPR_MODULES and nothing else.
+    missing=()
+    for m in "${HYPR_MODULES[@]}"; do
+        grep -q "require(\"config.$m\")" "$HYPR_MAIN" || missing+=("$m")
+    done
+    if (( ${#missing[@]} == 0 )); then
+        log "hyprland.lua already requires: ${HYPR_MODULES[*]}"
     else
+        # Single backup covers every require line added below (the original is
+        # moved, never deleted), and the working copy is restored ONCE so each
+        # insertion sees the previous one.
         backup_if_exists "$HYPR_MAIN"
-        # Re-create from backup with the requires added
-        # (order: windowrules, waybar, capture, session, navigation).
         cp "$BACKUP_DIR/.config/hypr/hyprland.lua" "$HYPR_MAIN"
-        if ! grep -q 'require("config.waybar")' "$HYPR_MAIN"; then
-            if grep -q 'require("config.windowrules")' "$HYPR_MAIN"; then
-                sed -i '/require("config.windowrules")/a require("config.waybar")' "$HYPR_MAIN"
-            else
-                printf '\nrequire("config.waybar")\n' >> "$HYPR_MAIN"
+        anchor='require("config.windowrules")'
+        for m in "${HYPR_MODULES[@]}"; do
+            line="require(\"config.$m\")"
+            if grep -qF "$line" "$HYPR_MAIN"; then
+                anchor="$line"
+                continue
             fi
-            log "added require(\"config.waybar\") to hyprland.lua"
-        fi
-        if ! grep -q 'require("config.capture")' "$HYPR_MAIN"; then
-            if grep -q 'require("config.waybar")' "$HYPR_MAIN"; then
-                sed -i '/require("config.waybar")/a require("config.capture")' "$HYPR_MAIN"
+            if grep -qF "$anchor" "$HYPR_MAIN"; then
+                sed -i "\\|$anchor|a $line" "$HYPR_MAIN"
             else
-                printf '\nrequire("config.capture")\n' >> "$HYPR_MAIN"
+                printf '\n%s\n' "$line" >> "$HYPR_MAIN"
             fi
-            log "added require(\"config.capture\") to hyprland.lua"
-        fi
-        if ! grep -q 'require("config.session")' "$HYPR_MAIN"; then
-            if grep -q 'require("config.capture")' "$HYPR_MAIN"; then
-                sed -i '/require("config.capture")/a require("config.session")' "$HYPR_MAIN"
-            else
-                printf '\nrequire("config.session")\n' >> "$HYPR_MAIN"
-            fi
-            log "added require(\"config.session\") to hyprland.lua (wlogout, Noctalia untouched)"
-        fi
-        if ! grep -q 'require("config.navigation")' "$HYPR_MAIN"; then
-            if grep -q 'require("config.session")' "$HYPR_MAIN"; then
-                sed -i '/require("config.session")/a require("config.navigation")' "$HYPR_MAIN"
-            else
-                printf '\nrequire("config.navigation")\n' >> "$HYPR_MAIN"
-            fi
-            log "added require(\"config.navigation\") to hyprland.lua (alt+tab)"
-        fi
+            log "added $line to hyprland.lua"
+            anchor="$line"
+        done
     fi
 else
     warn "$HYPR_MAIN not found; create it with: require(\"config.waybar\")"
@@ -305,6 +300,16 @@ else
     warn "wallpaper directory not found; picker cache build skipped"
 fi
 
+# --- Lock screen: point it at the wallpaper that is applied right now --------
+# hypr/hyprlock.conf reads one fixed path; the picker refreshes it on every
+# wallpaper change, and this seeds it so the very first lock is correct too.
+if command -v hyprlock >/dev/null 2>&1; then
+    "$REPO_DIR/rofi/wallpaper-picker.sh" --sync-lock-image 2>&1 \
+        || warn "could not seed the lock screen background; it falls back to a dark fill"
+fi
+command -v playerctl >/dev/null 2>&1 \
+    || warn "playerctl missing: media keys and the lock screen's now-playing line need it (sudo pacman -S playerctl)"
+
 # --- Generated colour files: static fallbacks, only when missing --------------
 # These are matugen outputs (or our Pillow fallback's). Never symlinked and
 # never overwritten, so a generated palette survives re-running the installer.
@@ -360,6 +365,7 @@ for script in "$REPO_DIR"/waybar/scripts/*.sh; do
     bash -n "$script" || exit 1
 done
 bash -n "$REPO_DIR/rofi/wallpaper-picker.sh" || exit 1
+bash -n "$REPO_DIR/hypr/scripts/now-playing.sh" || exit 1
 bash -n "$REPO_DIR/emergency-restore.sh" || exit 1
 log "shell scripts: syntax OK"
 if command -v python3 >/dev/null 2>&1; then

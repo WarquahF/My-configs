@@ -11,6 +11,7 @@
 #   wallpaper-picker.sh --previous       previous wallpaper (no popup)
 #   wallpaper-picker.sh --random [cat]   apply a random static wallpaper
 #   wallpaper-picker.sh --build-cache    (re)scan library + build thumbnails
+#   wallpaper-picker.sh --sync-lock-image  re-point the lock screen at it
 #
 # Static images only (jpg/jpeg/png/webp/bmp; animated webp excluded).
 # Categories are detected dynamically from subfolder names — nothing hardcoded.
@@ -37,6 +38,10 @@ THUMB_DIR="$CACHE_DIR/thumbs"
 LIBRARY="$CACHE_DIR/library.tsv"
 SCAN_STAMP="$CACHE_DIR/scan.stamp"   # holds a library signature (see below)
 CURRENT_FILE="$CACHE_DIR/current"
+# One stable path for "the wallpaper that is currently applied", so
+# hypr/hyprlock.conf can point at a fixed file instead of being regenerated
+# per lock. Kept as JPEG because hyprlock picks its loader by extension.
+LOCK_IMAGE="$CACHE_DIR/lock-background.jpg"
 SCRIPT_DIR="$(cd -- "$(dirname -- "$(readlink -f "$0")")" && pwd)"
 THEME_SCRIPT="$HOME/.config/waybar/scripts/wallpaper-theme.sh"
 if [[ ! -x "$THEME_SCRIPT" && -x "$SCRIPT_DIR/../waybar/scripts/wallpaper-theme.sh" ]]; then
@@ -59,6 +64,33 @@ ensure_daemon() {
     done
     notify "Could not start awww-daemon"
     return 1
+}
+
+# --- lock screen: keep one fixed path pointing at the current wallpaper -----
+refresh_lock_image() {
+    # $1 = source image. Re-encodes to a capped-size JPEG at $LOCK_IMAGE so
+    # every lock entry point (Super+L, wlogout, power-menu.sh) shows the
+    # wallpaper without hyprlock needing to know today's filename.
+    local src="$1" tmp
+    command -v python3 >/dev/null 2>&1 || return 0
+    tmp="$(mktemp "$LOCK_IMAGE.tmp.XXXXXX")" || return 0
+    # Written to a temp file and moved into place: hyprlock reads this at
+    # lock time and must never see a half-encoded image.
+    if python3 - "$src" "$tmp" <<'EOF' 2>/dev/null; then
+import sys
+from PIL import Image
+src, dst = sys.argv[1], sys.argv[2]
+with Image.open(src) as opened:
+    image = opened.convert("RGB")
+# Cap the long side: hyprlock blurs this anyway, and a 4K-plus source would
+# only slow the lock screen down.
+image.thumbnail((3840, 3840), Image.Resampling.LANCZOS)
+image.save(dst, "JPEG", quality=92)
+EOF
+        mv -f "$tmp" "$LOCK_IMAGE"
+    else
+        rm -f "$tmp"
+    fi
 }
 
 current_wallpaper() {
@@ -225,6 +257,8 @@ apply_wallpaper() {
     if [[ -x "$THEME_SCRIPT" ]]; then
         "$THEME_SCRIPT" "$image" >/dev/null 2>&1 || true
     fi
+
+    refresh_lock_image "$image"
 }
 
 cycle_wallpaper() {
@@ -286,5 +320,14 @@ case "${1:-}" in
         if [[ "$scope" == "RANDOM" ]]; then random_wallpaper "ALL"; else browse "$scope"; fi
         ;;
     --random)      random_wallpaper "${2:-ALL}" ;;
-    *) echo "usage: wallpaper-picker.sh [--next|--previous|--browse <cat>|--menu|--build-cache|--random [category]]" >&2; exit 1 ;;
+    # Point the lock screen at whatever is on screen right now. install.sh
+    # runs this once so the first lock already shows the wallpaper.
+    --sync-lock-image)
+        image="$(current_wallpaper)"
+        [[ -n "$image" && -f "$image" ]] || { echo "no current wallpaper to sync" >&2; exit 1; }
+        refresh_lock_image "$image"
+        [[ -f "$LOCK_IMAGE" ]] || { echo "could not write $LOCK_IMAGE (is python-pillow installed?)" >&2; exit 1; }
+        echo "lock screen background synced from ${image##*/}"
+        ;;
+    *) echo "usage: wallpaper-picker.sh [--next|--previous|--browse <cat>|--menu|--build-cache|--random [category]|--sync-lock-image]" >&2; exit 1 ;;
 esac

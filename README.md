@@ -37,10 +37,12 @@ Noctalia is intentionally disabled and nothing here depends on it.
 │   ├── README.md
 │   ├── config/
 │   │   ├── waybar.lua          # blur layer rules for waybar/rofi/wlogout
-│   │   ├── capture.lua         # volume key binds (F2/F3 + XF86Audio*)
+│   │   ├── capture.lua         # volume/mute/media binds (F2/F3 + XF86Audio*)
 │   │   ├── session.lua         # wlogout/lock/power keybinds
 │   │   ├── navigation.lua      # Alt+Tab window switcher
+│   │   ├── wallpaper.lua       # wallpaper scroll + cycle keybinds
 │   │   └── matugen.lua         # fallback accent (copied; matugen regenerates)
+│   ├── hyprlock.conf           # lock screen: current wallpaper + now playing
 │   └── scripts/cursor-wiggle.py # shake-to-find-cursor daemon
 ├── sway/
 │   ├── README.md               # side-by-side Sway session (Hyprland stays default)
@@ -159,8 +161,10 @@ Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
   Scroll the strip, **Enter** applies instantly, **Esc** cancels. Type to
   filter anytime.
 - The current wallpaper is marked (●) and pre-selected on open.
-- Prefer no GUI at all? `--next` / `--previous` jump straight to the
-  neighbouring wallpaper, entering from the matching side.
+- Prefer no GUI at all? **Super+Alt+W** / **Super+Alt+Shift+W** jump straight
+  to the next / previous wallpaper, entering from the matching side.
+- These keybinds live in `hypr/config/wallpaper.lua`, so they are versioned
+  here rather than in the untracked `binds.lua`.
 - Prefer folders for a big mixed library? Run the picker with `--menu` for
   the category-first flow (which also offers **Random wallpaper**);
   `--random` applies one at random directly.
@@ -205,6 +209,7 @@ Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
   Blur comes from the `wlogout` layer rule in `hypr/config/waybar.lua`.
   Five buttons: **Lock / Logout (= Signout) / Suspend / Reboot / Shutdown**.
 - Fast lock: **Super+L** (`hyprlock` → `swaylock -f` → `loginctl` fallback).
+  The lock screen is `hypr/hyprlock.conf` — see below.
 - Direct actions (no menu): **Super+Alt+L** lock · **Super+Alt+E** logout ·
   **Super+Alt+S** suspend · **Super+Alt+R** reboot · **Super+Alt+P** shutdown.
 - Portable across compositors: layout actions try
@@ -213,6 +218,27 @@ Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
 - Hibernate is intentionally omitted: this machine only has zram swap.
 - Keybinds live in `hypr/config/session.lua` (Hyprland) and `sway/config`
   (Sway); `binds.lua` is untouched.
+
+## Lock screen (hyprlock)
+
+- Shows **the wallpaper you currently have applied**, blurred, with a live
+  clock, the date, and a now-playing line when something is playing.
+- **Audio keeps playing while locked.** Nothing in the lock path pauses
+  players, and volume / mute / play-pause / next / previous stay bound on the
+  lock screen (`{ locked = true }` in `hypr/config/capture.lua`), so you can
+  control the music without unlocking.
+- The wallpaper comes from one fixed path,
+  `~/.cache/wallpaper-picker/lock-background.jpg`, refreshed by the picker on
+  every wallpaper change. So every lock entry point — Super+L, Super+Alt+L,
+  the wlogout **Lock** button, `power-menu.sh` — shows the same current
+  wallpaper, and the config itself never needs regenerating.
+  Re-sync by hand: `wallpaper-picker.sh --sync-lock-image`.
+- A screenshot background is deliberately **not** used: it would leak
+  whatever was on screen when you locked. Missing cache file falls back to a
+  dark fill instead of failing.
+- Note: before this config existed, `hyprlock` had none at all — it exits
+  with “No config file at …”, so Super+L fell through to
+  `loginctl lock-session` and the screen never actually locked.
 
 ## Sway (side-by-side WM)
 
