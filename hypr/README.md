@@ -1,8 +1,9 @@
 # Hyprland integration
 
-This repo ships three Hyprland files: `config/waybar.lua` (blur rules),
-`config/capture.lua` (volume key binds) and `config/session.lua`
-(wlogout/lock/power keybinds).
+This repo ships four Hyprland files: `config/waybar.lua` (blur rules),
+`config/capture.lua` (volume key binds), `config/session.lua`
+(wlogout/lock/power keybinds) and `config/navigation.lua` (Alt+Tab window
+switcher).
 Everything else in `~/.config/hypr/` is left untouched.
 
 ## What it does
@@ -25,6 +26,7 @@ Noctalia stays disabled — nothing here references it.
 require("config.waybar")
 require("config.capture")
 require("config.session")
+require("config.navigation")
 ```
 
 Waybar autostart is the existing line in
@@ -34,7 +36,10 @@ Waybar autostart is the existing line in
 hl.exec_cmd("waybar")
 ```
 
-The installer verifies that line exists and adds it back if missing.
+The installer verifies that line exists and **warns if it is missing** (it
+does not synthesise placement inside your `hyprland.start` callback). The
+mako / awww-daemon / cursor-wiggle autostart lines anchor off it, so add the
+waybar line and re-run `install.sh` if you see that warning.
 
 ## Manual setup
 

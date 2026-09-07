@@ -35,7 +35,8 @@ Noctalia is intentionally disabled and nothing here depends on it.
 │   ├── config/
 │   │   ├── waybar.lua          # blur layer rules for waybar/rofi/wlogout
 │   │   ├── capture.lua         # volume key binds (F2/F3 + XF86Audio*)
-│   │   └── session.lua         # wlogout/lock/power keybinds
+│   │   ├── session.lua         # wlogout/lock/power keybinds
+│   │   └── navigation.lua      # Alt+Tab window switcher
 │   └── scripts/cursor-wiggle.py # shake-to-find-cursor daemon
 ├── wlogout/                    # overlay power menu (layout, style, icons)
 ├── kitty/kitty.conf            # standalone, no theme includes
@@ -74,9 +75,10 @@ What it does:
 4. Moves anything it replaces into
    `~/.config-backup-YYYYMMDD-HHMMSS/` (originals are moved, never deleted).
 5. Symlinks repo files into `~/.config` and makes scripts executable.
-6. Adds `require("config.waybar")`, `require("config.capture")` and
-   `require("config.session")` to `hyprland.lua` (backed up first) and
-   verifies the existing `hl.exec_cmd("waybar")` autostart line.
+6. Adds `require("config.waybar")`, `require("config.capture")`,
+   `require("config.session")` and `require("config.navigation")` to
+   `hyprland.lua` (backed up first) and verifies the existing
+   `hl.exec_cmd("waybar")` autostart line.
 
 Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
 `--list` shows all backups, `--yes` skips the prompt).
@@ -119,8 +121,11 @@ Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
     `~/Pictures/Screenshots/`, copies to clipboard, opens
     `swappy`/`satty` if installed.
   - Screen recorder; **click** opens a rofi menu: fullscreen,
-    region, stop. Saves `.mp4` to `~/Videos/Recordings/`
-    (needs `wf-recorder`, red pill in bar while recording).
+    region, stop. Records the **system audio you're playing** (Spotify,
+    browser, games) via the default sink's monitor, and saves `.mp4` to
+    `~/Videos/Recordings/` (needs `wf-recorder` + `pactl`; red pill in bar
+    while recording). Set `SCREENREC_AUDIO=none` for silent video, or a
+    source name to record a mic instead.
   - Power button; **click** opens the `wlogout` frosted overlay
     (lock/logout/suspend/reboot/shutdown), falling back to the rofi
     power menu when `wlogout` is missing.
@@ -129,11 +134,14 @@ Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
 
 ## Wallpapers (rofi picker + awww)
 
-- Press **Super+Shift+W** to open the visual browser: pick a category
-  (detected from your folder names), then scroll the thumbnail filmstrip.
-  **Enter** applies instantly, **Esc** cancels. Type to filter anytime.
+- Press **Super+Shift+W** to open the visual browser: **every** wallpaper
+  at once in one horizontal thumbnail filmstrip — no folders, no category
+  step. Scroll the strip, **Enter** applies instantly, **Esc** cancels.
+  Type to filter anytime.
 - The current wallpaper is marked (●) and pre-selected on open.
-  The category menu also offers **Random wallpaper**.
+- Prefer folders for a big mixed library? Run the picker with `--menu` for
+  the old category-first flow (which also offers **Random wallpaper**);
+  `--random` applies one at random directly.
 - Applies via `awww` with a `center` grow transition (~0.9s, 60fps —
   no fade). Library: `~/Pictures/Wallpapers` by default; override with
   `$WALLPAPER_DIR` or a path in `~/.config/my-local-configs/wallpaper-dir`
@@ -199,6 +207,10 @@ fully working), bar scroll and the power-menu logout use the
   the camera / record pills for the rofi menus (no Print/record keybinds).
 - `hypr/config/session.lua`: wlogout + lock + direct power keybinds
   (see “Session & power” above).
+- `hypr/config/navigation.lua`: **Alt+Tab** focuses the next window on the
+  current workspace, **Alt+Shift+Tab** the previous — a classic app switcher.
+  Uses the object-form dispatch, so it is unaffected by the string-dispatch
+  bug noted above.
 
 ## Fingerprint (manual, optional)
 
