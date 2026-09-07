@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Midnight Aurora</title>
+  <desc id="desc">Deep navy abstract landscape with cyan and violet aurora ribbons.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#05080f"/><stop offset="0.5" stop-color="#091525"/><stop offset="1" stop-color="#160d2a"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#5ee7df" stop-opacity="0"/><stop offset="0.28" stop-color="#5ee7df" stop-opacity=".8"/><stop offset=".68" stop-color="#8b5cf6" stop-opacity=".65"/><stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="34"/></filter>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 .055 0"/></filter>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <path d="M-120 690C260 410 460 820 860 500s650-230 1180-50" fill="none" stroke="url(#ribbon)" stroke-width="160" filter="url(#blur)" opacity=".64"/>
+  <path d="M-120 665C260 390 500 735 875 470s690-190 1165-78" fill="none" stroke="url(#ribbon)" stroke-width="30" opacity=".8"/>
+  <ellipse cx="1470" cy="280" rx="370" ry="260" fill="#7557ff" opacity=".1" filter="url(#blur)"/>
+  <path d="M0 845c260-110 440-90 690 35 275 137 500 112 760-18 178-90 320-101 470-65v283H0Z" fill="#03060b" opacity=".85"/>
+  <g fill="#d9fcff"><circle cx="210" cy="170" r="2"/><circle cx="530" cy="245" r="1.5"/><circle cx="905" cy="130" r="1.8"/><circle cx="1280" cy="190" r="1.4"/><circle cx="1690" cy="110" r="2"/></g>
+  <rect width="1920" height="1080" filter="url(#grain)" opacity=".42"/>
+</svg>
