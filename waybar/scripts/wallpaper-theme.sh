@@ -82,7 +82,14 @@ def relative_luminance(rgb):
     red, green, blue = map(linear, rgb)
     return 0.2126 * red + 0.7152 * green + 0.0722 * blue
 
-accent_fg = "#111318" if relative_luminance(accent) > 0.43 else "#f8f9ff"
+# Pick whichever foreground actually contrasts more against the accent (WCAG
+# ratio), instead of guessing from a fixed luminance threshold.
+dark_fg = (0x11 / 255, 0x13 / 255, 0x18 / 255)
+light_fg = (0xF8 / 255, 0xF9 / 255, 1.0)
+accent_luminance = relative_luminance(accent)
+dark_contrast = (accent_luminance + 0.05) / (relative_luminance(dark_fg) + 0.05)
+light_contrast = (relative_luminance(light_fg) + 0.05) / (accent_luminance + 0.05)
+accent_fg = "#111318" if dark_contrast >= light_contrast else "#f8f9ff"
 css = f"""/* Generated from {source.name} by wallpaper-theme.sh. */
 @define-color accent {hex_color(accent)};
 @define-color accent-fg {accent_fg};

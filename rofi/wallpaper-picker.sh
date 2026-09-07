@@ -203,6 +203,12 @@ apply_wallpaper() {
     local image="$1" transition="${2:-center}"
     ensure_daemon || return 1
 
+    # Ignore repeat-key overlap instead of letting old transitions/colors win.
+    if command -v flock >/dev/null 2>&1; then
+        exec 9>"$CACHE_DIR/change.lock"
+        flock -n 9 || return 0
+    fi
+
     # Ease-out movement feels like scrolling instead of a hard wipe. The state
     # file makes deterministic cycling reliable even while awww is transitioning.
     if awww img "$image" --transition-type "$transition" \
