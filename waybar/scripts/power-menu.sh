@@ -5,6 +5,7 @@ set -euo pipefail
 
 LOCK="  Lock"
 LOGOUT="󰍃  Log out"
+SUSPEND="󰒲  Suspend"
 REBOOT="󰜉  Reboot"
 SHUTDOWN="⏻  Shutdown"
 
@@ -28,14 +29,19 @@ if ! command -v rofi >/dev/null 2>&1; then
     exit 1
 fi
 
-choice="$(printf '%s\n' "$LOCK" "$LOGOUT" "$REBOOT" "$SHUTDOWN" \
+choice="$(printf '%s\n' "$LOCK" "$LOGOUT" "$SUSPEND" "$REBOOT" "$SHUTDOWN" \
     | rofi -dmenu -p "Power" -no-custom)" || exit 0
 
 case "$choice" in
     "$LOCK")     lock_session ;;
     # NOTE: plain `hyprctl dispatch exit` is broken in this Hyprland Lua
     # build (string dispatches fail core-side); the Lua object form works.
-    "$LOGOUT")   hyprctl dispatch 'hl.dsp.exit()' ;;
+    # swaymsg covers the Sway session; loginctl is the last resort.
+    "$LOGOUT")   hyprctl dispatch 'hl.dsp.exit()' 2>/dev/null \
+                   || hyprctl dispatch exit 2>/dev/null \
+                   || swaymsg exit 2>/dev/null \
+                   || loginctl terminate-session "${XDG_SESSION_ID:-}" ;;
+    "$SUSPEND")  systemctl suspend ;;
     "$REBOOT")   systemctl reboot ;;
     "$SHUTDOWN") systemctl poweroff ;;
     *)           exit 0 ;;

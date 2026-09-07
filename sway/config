@@ -1,0 +1,110 @@
+# Sway — side-by-side tiling WM reusing this repo's stack.
+# Hyprland stays the default; nothing here touches Hyprland or greetd.
+# Start from a TTY (`sway`) or pick "Sway" in your greeter.
+#
+# Reuses: waybar (config-sway.jsonc), wlogout overlay, mako, rofi menus,
+# kitty, wallpaper library. Mirrors hypr/config/session.lua binds.
+#
+# Requires: sway swaylock swayidle swaybg (or sway-wallpapers) waybar rofi mako
+#   sudo pacman -S sway swaylock swayidle swaybg waybar rofi mako grim slurp wl-clipboard
+# Optional (same graceful fallbacks as Hyprland): wlogout hyprlock pavucontrol
+#   swayidle locks with swaylock, falls back to hyprlock / loginctl.
+#
+# install.sh symlinks: sway/config -> ~/.config/sway/config
+#   waybar/config-sway.jsonc -> ~/.config/waybar/config-sway.jsonc
+#   swaylock/config -> ~/.config/swaylock/config
+
+set $mod Mod4
+set $term kitty
+set $menu rofi -show drun
+
+font pango:MesloLGS Nerd Font Mono 11
+
+# --- Appearance (static Liquid Glass dark; matugen covers kitty/waybar) ---
+# Solid fallback always works; uncomment the image line once you have one.
+output * bg #101218 solid_color
+# output * bg ~/Pictures/Wallpapers/yours.jpg fill
+# If you have no image yet the solid color above keeps Sway happy — pick a
+# wallpaper with `swaybg -i <img> -m fill` then optionally `matugen image <img>`.
+
+gaps inner 8
+gaps outer 10
+default_border pixel 2
+default_floating_border pixel 2
+hide_edge_borders smart
+
+client.focused          #89b4fa #2a2e3a #e8eaf0 #89b4fa #89b4fa
+client.focused_inactive #2a2e3a #101218 #888888 #2a2e3a #2a2e3a
+client.unfocused        #2a2e3a #101218 #888888 #2a2e3a #2a2e3a
+client.urgent           #f09393 #581818 #ffffff #f09393 #f09393
+
+# --- Bar: same Liquid Glass Waybar, Sway module set ---
+bar {
+    swaybar_command waybar -c $HOME/.config/waybar/config-sway.jsonc -s $HOME/.config/waybar/style.css
+    position top
+    mode hide
+    hidden_state hide
+}
+
+# --- Autostart (mirrors hypr autostart.lua, minus Hyprland-only daemons) ---
+exec mako
+exec swayidle -w \
+    timeout 300 'swaylock -f || hyprlock || loginctl lock-session' \
+    timeout 360 'swaymsg "output * dpms off"' resume 'swaymsg "output * dpms on"' \
+    before-sleep 'swaylock -f || hyprlock || loginctl lock-session' \
+    lock 'swaylock -f || hyprlock || loginctl lock-session'
+
+# --- Basics ---
+bindsym $mod+Return exec $term
+bindsym $mod+d exec $menu
+bindsym $mod+Shift+q kill
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+e exec swaynag -t warning -m 'Exit Sway?' -b 'Yes' 'swaymsg exit'
+bindsym $mod+f fullscreen toggle
+bindsym $mod+Space floating toggle
+bindsym $mod+Shift+Space focus mode_toggle
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
+bindsym $mod+Shift+h move left
+bindsym $mod+Shift+j move down
+bindsym $mod+Shift+k move up
+bindsym $mod+Shift+l move right
+
+# Workspaces 1-5 (matches Waybar persistent 1-5)
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+
+# --- Session / power (mirrors hypr/config/session.lua) ---
+# wlogout overlay (lock/logout/suspend/reboot/shutdown); rofi fallback.
+bindsym $mod+Mod1+c exec sh -c 'command -v wlogout >/dev/null && wlogout -b 5 || $HOME/.config/waybar/scripts/power-menu.sh'
+# Fast lock
+bindsym $mod+l exec sh -c 'command -v swaylock >/dev/null && swaylock -f || hyprlock || loginctl lock-session'
+# Direct actions (no menu)
+bindsym $mod+Mod1+l exec sh -c 'command -v swaylock >/dev/null && swaylock -f || hyprlock || loginctl lock-session'
+bindsym $mod+Mod1+e exec swaymsg exit
+bindsym $mod+Mod1+s exec systemctl suspend
+bindsym $mod+Mod1+r exec systemctl reboot
+bindsym $mod+Mod1+p exec systemctl poweroff
+
+# --- Volume (mirrors hypr/config/capture.lua; fnLock on/off both work) ---
+bindsym F3 exec pactl set-sink-volume @DEFAULT_SINK@ +5%
+bindsym F2 exec pactl set-sink-volume @DEFAULT_SINK@ -5%
+bindsym XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +5%
+bindsym XF86AudioLowerVolume exec pactl set-sink-volume @DEFAULT_SINK@ -5%
+bindsym XF86AudioMute exec pactl set-sink-mute @DEFAULT_SINK@ toggle
+
+# Screenshots / recording are WAYBAR-ONLY by design (click camera/record
+# pills for the rofi menus) — no Print binds, same as Hyprland.
+
+# Idle inhibit while fullscreen (video playback)
+for_window [class=".*"] inhibit_idle fullscreen

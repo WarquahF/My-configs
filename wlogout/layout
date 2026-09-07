@@ -1,12 +1,12 @@
 {
     "label" : "lock",
-    "action" : "hyprlock || loginctl lock-session",
+    "action" : "hyprlock || swaylock -f || loginctl lock-session",
     "text" : "Lock",
     "keybind" : "l"
 }
 {
     "label" : "logout",
-    "action" : "hyprctl dispatch 'hl.dsp.exit()' || hyprctl dispatch exit",
+    "action" : "hyprctl dispatch 'hl.dsp.exit()' || hyprctl dispatch exit || swaymsg exit || loginctl terminate-session $XDG_SESSION_ID",
     "text" : "Logout",
     "keybind" : "e"
 }

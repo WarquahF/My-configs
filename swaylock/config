@@ -1,0 +1,17 @@
+# swaylock — dark lock screen matching the Liquid Glass desktop.
+# Used by sway/config idle + lock binds. Hyprland keeps using hyprlock;
+# this file is Sway-only (plus wlogout/rofi fallbacks reference it).
+color=101218
+font=MesloLGS Nerd Font Mono
+show-failed-attempts
+ignore-empty-password
+ring-color=89b4fa
+key-hl-color=a6e3a1
+text-color=e8eaf0
+inside-color=101218
+line-color=101218
+separator-color=2a2e3a
+ring-wrong-color=f09393
+text-wrong-color=f09393
+ring-ver-color=f0c070
+text-ver-color=f0c070
