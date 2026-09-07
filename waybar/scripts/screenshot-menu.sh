@@ -1,24 +1,20 @@
 #!/usr/bin/env bash
 # Screenshot menu for Waybar (click the camera icon).
 # Rofi UI over grim + slurp: fullscreen, region, active window.
-# Saves to ~/Pictures/Screenshots/, copies to clipboard, notifies.
+# Saves to ~/Pictures/Screenshots/ and copies to the clipboard.
+# Capture is intentionally silent so notification popups never appear in the image.
 # Requires: rofi, grim. Optional: slurp (region), wl-copy (clipboard),
-# hyprctl+jq (active window), swappy/satty (edit), notify-send.
+# hyprctl+jq (active window), swappy/satty (edit), notify-send (errors only).
 set -euo pipefail
 
 for dep in rofi grim; do
     command -v "$dep" >/dev/null 2>&1 || { echo "screenshot-menu.sh: $dep is not installed" >&2; exit 1; }
 done
 
-notify() { notify-send "Screenshot" "$1" 2>/dev/null || true; }
+notify_error() { notify-send -u critical "Screenshot error" "$1" 2>/dev/null || true; }
 
-# 3-2-1 countdown so the rofi menu is gone before grim captures.
-countdown() {
-    for i in 3 2 1; do
-        notify "Capturing in $i…"
-        sleep 1
-    done
-}
+# Give rofi/slurp one compositor frame to disappear without showing a popup.
+settle_overlay() { sleep 0.15; }
 
 DIR="$HOME/Pictures/Screenshots"
 mkdir -p "$DIR"
@@ -32,7 +28,6 @@ copy_clipboard() {
 
 after_save() {
     copy_clipboard
-    notify "Saved: $FILE"
     # Open editor if available, without blocking the bar.
     if command -v swappy >/dev/null 2>&1; then
         swappy -f "$FILE" &
@@ -42,19 +37,19 @@ after_save() {
 }
 
 take_full() {
-    countdown
+    settle_overlay
     grim "$FILE" && after_save
 }
 
 take_region() {
     if ! command -v slurp >/dev/null 2>&1; then
-        notify "slurp is not installed (region capture needs it)"
+        notify_error "slurp is not installed (region capture needs it)"
         exit 1
     fi
     local geo
     geo="$(slurp 2>/dev/null)" || exit 0
     [[ -z "$geo" ]] && exit 0
-    countdown
+    settle_overlay
     grim -g "$geo" "$FILE" && after_save
 }
 
@@ -63,7 +58,7 @@ take_window() {
         local geo
         geo="$(hyprctl activewindow -j 2>/dev/null | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')"
         if [[ -n "$geo" && "$geo" != "null,null nullxnull" ]]; then
-            countdown
+            settle_overlay
             grim -g "$geo" "$FILE" && after_save
             return
         fi
@@ -73,7 +68,7 @@ take_window() {
 }
 
 take_delayed() {
-    countdown
+    sleep 3
     grim "$FILE" && after_save
 }
 

@@ -30,11 +30,19 @@ if [[ "$missing_required" -ne 0 ]]; then
     echo "[install] install the missing packages first (e.g. sudo pacman -S waybar rofi), then re-run." >&2
     exit 1
 fi
-for opt in nmcli nmtui pactl pavucontrol loginctl systemctl python3 grim slurp wl-copy jq swappy satty wf-recorder wlogout hyprlock; do
+for opt in nmcli nmtui pactl pavucontrol loginctl systemctl python3 grim slurp wl-copy jq swappy satty wf-recorder wlogout hyprlock sway swaylock swayidle swaybg swaymsg matugen sddm; do
     command -v "$opt" >/dev/null 2>&1 || warn "optional tool missing: $opt (some bar actions degrade gracefully)"
 done
 command -v wlogout >/dev/null 2>&1 || warn "wlogout not installed: power button falls back to rofi (sudo pacman -S wlogout)"
 command -v hyprlock >/dev/null 2>&1 || warn "hyprlock not installed: lock falls back to loginctl (sudo pacman -S hyprlock)"
+command -v sway >/dev/null 2>&1 || warn "sway not installed: sway/ config is inert until you install it (sudo pacman -S sway swaylock swayidle swaybg)"
+if ! command -v matugen >/dev/null 2>&1 \
+    && ! python3 -c 'from PIL import Image' >/dev/null 2>&1; then
+    warn "wallpaper colors need matugen or python-pillow (sudo pacman -S python-pillow)"
+fi
+if ! command -v sddm >/dev/null 2>&1; then
+    warn "sddm not installed: sddm/ stays as side-by-side reference, greetd untouched (sudo pacman -S sddm)"
+fi
 
 # --- Helpers ----------------------------------------------------------------
 # backup_if_exists is single-shot per run: the FIRST original wins.
@@ -93,18 +101,23 @@ link_file() {
 
 # --- Preflight: someone else's dotfiles? Ask before touching them ------------
 conflicts=()
-for cand in .config/waybar/config.jsonc .config/waybar/style.css \
+for cand in .config/waybar/config.jsonc .config/waybar/config-sway.jsonc .config/waybar/style.css \
             .config/hypr/config/waybar.lua .config/kitty/kitty.conf \
-            .config/btop/btop.conf .config/mako/config .config/rofi/config.rasi; do
+            .config/btop/btop.conf .config/mako/config .config/rofi/config.rasi \
+            .config/sway/config .config/swaylock/config .config/matugen/config.toml; do
     if [[ -e "$HOME_DIR/$cand" || -L "$HOME_DIR/$cand" ]]; then
         # Ours already? then not a conflict.
         case "$cand" in
             .config/waybar/config.jsonc) repo_src="$REPO_DIR/waybar/config.jsonc" ;;
+            .config/waybar/config-sway.jsonc) repo_src="$REPO_DIR/waybar/config-sway.jsonc" ;;
             .config/waybar/style.css) repo_src="$REPO_DIR/waybar/style.css" ;;
             .config/hypr/config/waybar.lua) repo_src="$REPO_DIR/hypr/config/waybar.lua" ;;
             .config/kitty/kitty.conf) repo_src="$REPO_DIR/kitty/kitty.conf" ;;
             .config/btop/btop.conf) repo_src="$REPO_DIR/btop/btop.conf" ;;
             .config/mako/config) repo_src="$REPO_DIR/mako/config" ;;
+            .config/sway/config) repo_src="$REPO_DIR/sway/config" ;;
+            .config/swaylock/config) repo_src="$REPO_DIR/swaylock/config" ;;
+            .config/matugen/config.toml) repo_src="$REPO_DIR/matugen/config.toml" ;;
             *) repo_src="" ;;
         esac
         if [[ -n "$repo_src" && -L "$HOME_DIR/$cand" && "$(readlink "$HOME_DIR/$cand")" == "$repo_src" ]]; then
@@ -134,12 +147,35 @@ mkdir -p "$HOME_DIR/.config/waybar/scripts" "$HOME_DIR/.config/hypr/config" \
          "$HOME_DIR/.config/kitty" "$HOME_DIR/.config/btop" \
          "$HOME_DIR/.config/mako" "$HOME_DIR/.config/rofi" \
          "$HOME_DIR/.config/wlogout" \
+         "$HOME_DIR/.config/sway" "$HOME_DIR/.config/swaylock" \
+         "$HOME_DIR/.config/matugen/templates" \
          "$HOME_DIR/Pictures/Wallpapers" "$HOME_DIR/Pictures/Screenshots" \
          "$HOME_DIR/Videos/Recordings"
 
+# copy_fallback <repo-relative-src> <home-relative-dest>
+# For matugen-generated outputs: copy the static fallback ONLY when the
+# destination does not exist yet, so `matugen image ...` output is never
+# clobbered on re-runs. Existing real files (incl. matugen output) are kept.
+copy_fallback() {
+    local src="$REPO_DIR/$1" dest="$HOME_DIR/$2"
+    if [[ ! -e "$src" ]]; then
+        warn "repo file missing, skipping: $1"
+        return
+    fi
+    mkdir -p "$(dirname "$dest")"
+    if [[ -e "$dest" || -L "$dest" ]]; then
+        log "kept existing ~/$2 (matugen output or yours, not overwritten)"
+        return
+    fi
+    cp "$src" "$dest"
+    log "copied fallback ~/$2 (from $1)"
+}
+
 # --- Waybar -------------------------------------------------------------------
 link_file "waybar/config.jsonc" ".config/waybar/config.jsonc"
+link_file "waybar/config-sway.jsonc" ".config/waybar/config-sway.jsonc"
 link_file "waybar/style.css" ".config/waybar/style.css"
+copy_fallback "waybar/matugen.css" ".config/waybar/matugen.css"
 for script in "$REPO_DIR"/waybar/scripts/*.sh; do
     name="$(basename "$script")"
     link_file "waybar/scripts/$name" ".config/waybar/scripts/$name"
@@ -151,6 +187,7 @@ log "waybar scripts are executable"
 link_file "hypr/config/waybar.lua" ".config/hypr/config/waybar.lua"
 link_file "hypr/config/capture.lua" ".config/hypr/config/capture.lua"
 link_file "hypr/config/session.lua" ".config/hypr/config/session.lua"
+copy_fallback "hypr/config/matugen.lua" ".config/hypr/config/matugen.lua"
 mkdir -p "$HOME_DIR/.config/hypr/scripts"
 link_file "hypr/scripts/cursor-wiggle.py" ".config/hypr/scripts/cursor-wiggle.py"
 chmod +x "$REPO_DIR/hypr/scripts/cursor-wiggle.py"
@@ -242,6 +279,7 @@ fi
 link_file "rofi/wallpaper-picker.sh" ".config/rofi/wallpaper-picker.sh"
 link_file "rofi/wallpaper.rasi" ".config/rofi/wallpaper.rasi"
 link_file "rofi/wallpaper-menu.rasi" ".config/rofi/wallpaper-menu.rasi"
+copy_fallback "rofi/matugen.rasi" ".config/rofi/matugen.rasi"
 chmod +x "$REPO_DIR/rofi/wallpaper-picker.sh"
 if [[ -d "$HOME_DIR/Pictures/Wallpapers" ]]; then
     # One-time thumbnail build; instant no-op when the cache is fresh.
@@ -252,27 +290,65 @@ fi
 
 # --- Kitty / btop (backed up, Noctalia includes dropped) ----------------------
 link_file "kitty/kitty.conf" ".config/kitty/kitty.conf"
+copy_fallback "kitty/colors.conf" ".config/kitty/colors.conf"
 link_file "btop/btop.conf" ".config/btop/btop.conf"
 
 # --- wlogout (overlay power menu, replaces Noctalia session) ------------------
+# Covers lock / logout (= signout) / suspend / reboot / shutdown on both
+# Hyprland and Sway (compositor fallbacks in layout + power-menu.sh).
 link_file "wlogout/layout" ".config/wlogout/layout"
 link_file "wlogout/style.css" ".config/wlogout/style.css"
 for icon in "$REPO_DIR"/wlogout/icons/*.png; do
     link_file "wlogout/icons/$(basename "$icon")" ".config/wlogout/icons/$(basename "$icon")"
 done
 
+# --- Sway (side-by-side WM, Hyprland stays default) ---------------------------
+link_file "sway/config" ".config/sway/config"
+link_file "swaylock/config" ".config/swaylock/config"
+if command -v swaymsg >/dev/null 2>&1; then
+    swaymsg -t get_version >/dev/null 2>&1 && log "swaymsg: sway IPC OK" \
+        || warn "swaymsg present but no sway session running (config still linked)"
+elif command -v sway >/dev/null 2>&1; then
+    log "sway installed (swaymsg check skipped, no session running)"
+fi
+
+# --- matugen (optional wallpaper theming, static fallback otherwise) ----------
+link_file "matugen/config.toml" ".config/matugen/config.toml"
+for tmpl in "$REPO_DIR"/matugen/templates/*; do
+    link_file "matugen/templates/$(basename "$tmpl")" ".config/matugen/templates/$(basename "$tmpl")"
+done
+command -v matugen >/dev/null 2>&1 \
+    && log "matugen found: full desktop colors update with each wallpaper" \
+    || log "matugen not found: built-in Pillow fallback recolors Waybar"
+
+# --- SDDM (side-by-side reference only — /etc untouched, greetd stays) --------
+# Copy manually when you want to try it; see sddm/README.md.
+log "sddm/: reference drop-ins only (sudo cp sddm/*.conf /etc/sddm.conf.d/ to try)"
+
 # --- Helpers made executable (repo-side, idempotent) --------------------------
 chmod +x "$REPO_DIR/emergency-restore.sh" 2>/dev/null || true
 
 # --- Validate ------------------------------------------------------------------
 if command -v python3 >/dev/null 2>&1; then
-    python3 - "$REPO_DIR/waybar/config.jsonc" <<'EOF'
+    python3 - "$REPO_DIR/waybar/config.jsonc" "$REPO_DIR/waybar/config-sway.jsonc" <<'EOF'
 import json, re, sys
-text = open(sys.argv[1]).read()
-text = re.sub(r'//.*', '', text)              # strip // comments
-text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)  # strip /* */ comments
-json.loads(text)
-print('[install] waybar config.jsonc: valid JSONC')
+for path in sys.argv[1:]:
+    text = open(path).read()
+    text = re.sub(r'//.*', '', text)              # strip // comments
+    text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)  # strip /* */ comments
+    json.loads(text)
+    print(f'[install] {path.split("/")[-1]}: valid JSONC')
+EOF
+fi
+if command -v python3 >/dev/null 2>&1; then
+    python3 - "$REPO_DIR/matugen/config.toml" <<'EOF'
+import sys
+try:
+    import tomllib
+except ImportError:
+    print('[install] matugen config.toml: tomllib unavailable, skipped'); sys.exit(0)
+tomllib.load(open(sys.argv[1], 'rb'))
+print('[install] matugen config.toml: valid TOML')
 EOF
 fi
 bash -n "$REPO_DIR/install.sh" && log "install.sh: syntax OK"

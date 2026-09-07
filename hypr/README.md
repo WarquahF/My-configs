@@ -1,8 +1,9 @@
 # Hyprland integration
 
-This repo ships three Hyprland files: `config/waybar.lua` (blur rules),
-`config/capture.lua` (volume key binds) and `config/session.lua`
-(wlogout/lock/power keybinds).
+This repo ships four Hyprland files: `config/waybar.lua` (blur rules),
+`config/capture.lua` (volume key binds), `config/session.lua`
+(wlogout/lock/power keybinds) and `config/matugen.lua` (fallback accent,
+copied — matugen regenerates it, optional `require("config.matugen")`).
 Everything else in `~/.config/hypr/` is left untouched.
 
 ## What it does

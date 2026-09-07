@@ -1,0 +1,47 @@
+# matugen — wallpaper-driven Material You colors (optional, graceful).
+#
+# install.sh never installs packages. Without matugen, everything below is
+# inert, but wallpaper-theme.sh still derives Waybar colors with Pillow.
+#
+# With matugen (`sudo pacman -S matugen`, or `yay -S matugen-bin`):
+#   matugen image ~/Pictures/Wallpapers/yours.jpg
+# and Waybar + Kitty + rofi follow the wallpaper. The wallpaper cycler calls
+# wallpaper-theme.sh automatically, which delegates to matugen when available.
+#
+# Wallpaper handling: [config.wallpaper] set=false — awww already sets
+# the wallpaper with the `center` transition. matugen only writes colors.
+#
+# Outputs (created on first `matugen image ...` run):
+#   ~/.config/waybar/matugen.css  <- @imported by waybar/style.css
+#   ~/.config/kitty/colors.conf   <- included by kitty/kitty.conf
+#   ~/.config/rofi/matugen.rasi   <- @imported by wallpaper themes (optional)
+#   ~/.config/hypr/config/matugen.lua (accent only, optional require)
+#
+# install.sh symlinks config.toml + templates/, and COPIES the fallback
+# colors (not symlinks) so matugen can overwrite them freely.
+
+[config]
+version_check = false
+prefer = "closest-to-fallback"
+
+[config.wallpaper]
+set = false
+
+[templates.waybar]
+input_path = "~/.config/matugen/templates/waybar-matugen.css"
+output_path = "~/.config/waybar/matugen.css"
+post_hook = "pkill -SIGUSR2 waybar 2>/dev/null || true"
+
+[templates.kitty]
+input_path = "~/.config/matugen/templates/kitty-colors.conf"
+output_path = "~/.config/kitty/colors.conf"
+post_hook = "kill -SIGUSR1 $(pidof kitty) 2>/dev/null || true"
+
+[templates.rofi]
+input_path = "~/.config/matugen/templates/rofi-colors.rasi"
+output_path = "~/.config/rofi/matugen.rasi"
+
+[templates.hypr]
+input_path = "~/.config/matugen/templates/hypr-colors.lua"
+output_path = "~/.config/hypr/config/matugen.lua"
+post_hook = "hyprctl reload 2>/dev/null || swaymsg reload 2>/dev/null || true"

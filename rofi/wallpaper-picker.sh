@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# Visual wallpaper picker for Hyprland + awww.
-# Opens a horizontal rofi card browser (thumbnails, keyboard/mouse/trackpad),
-# applies the pick with an animated awww transition.
+# Minimal wallpaper cycler for Hyprland + awww.
+# The default action has no GUI: each invocation advances one wallpaper with a
+# smooth horizontal transition. The old rofi browser remains opt-in.
 #
-#   wallpaper-picker.sh                  browse (category menu, then browser)
-#   wallpaper-picker.sh --browse <cat>  open the browser directly on a scope
+#   wallpaper-picker.sh                  next wallpaper (no popup)
+#   wallpaper-picker.sh --next           next wallpaper (no popup)
+#   wallpaper-picker.sh --previous       previous wallpaper (no popup)
+#   wallpaper-picker.sh --browse <cat>   optional thumbnail browser
 #   wallpaper-picker.sh --random [cat]   apply a random static wallpaper
 #   wallpaper-picker.sh --build-cache    (re)scan library + build thumbnails
 #
 # Static images only (jpg/jpeg/png/webp/bmp; animated webp excluded).
 # Categories are detected dynamically from subfolder names — nothing hardcoded.
-# Requires: rofi, awww (+daemon, started on demand), python3 + PIL (thumbs).
+# Requires: awww (+ daemon, started on demand). Rofi + Pillow are only needed
+# for the optional browser/thumbnails. Waybar recoloring uses Matugen or Pillow.
 # Wallpaper dir: $WALLPAPER_DIR env, ~/.config/my-local-configs/wallpaper-dir,
 # or ~/Pictures/Wallpapers (in that order). Keeps public repo reproducible.
 set -euo pipefail
@@ -31,6 +34,12 @@ CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/wallpaper-picker"
 THUMB_DIR="$CACHE_DIR/thumbs"
 LIBRARY="$CACHE_DIR/library.tsv"
 SCAN_STAMP="$CACHE_DIR/scan.stamp"
+CURRENT_FILE="$CACHE_DIR/current"
+SCRIPT_DIR="$(cd -- "$(dirname -- "$(readlink -f "$0")")" && pwd)"
+THEME_SCRIPT="$HOME/.config/waybar/scripts/wallpaper-theme.sh"
+if [[ ! -x "$THEME_SCRIPT" && -x "$SCRIPT_DIR/../waybar/scripts/wallpaper-theme.sh" ]]; then
+    THEME_SCRIPT="$SCRIPT_DIR/../waybar/scripts/wallpaper-theme.sh"
+fi
 THUMB_SIZE=360
 THEME="$HOME/.config/rofi/wallpaper.rasi"
 MENU_THEME="$HOME/.config/rofi/wallpaper-menu.rasi"
@@ -51,6 +60,10 @@ ensure_daemon() {
 }
 
 current_wallpaper() {
+    if [[ -s "$CURRENT_FILE" ]]; then
+        head -n1 "$CURRENT_FILE"
+        return
+    fi
     awww query 2>/dev/null | sed -n 's/.*currently displaying: image: //p' | head -n1
 }
 
@@ -179,12 +192,52 @@ browse() {
 }
 
 apply_wallpaper() {
-    # $1 = image path. Daemon must be up (started on demand, never duplicated).
+    # $1 = image path; $2 = awww direction/effect (defaults to a center reveal).
+    local image="$1" transition="${2:-center}"
     ensure_daemon || return 1
-    awww img "$1" --transition-type center --transition-duration 0.9 \
-        --transition-fps 60 >/dev/null 2>&1 &
-    disown
-    notify "Wallpaper: ${1##*/}"
+
+    # Ease-out movement feels like scrolling instead of a hard wipe. The state
+    # file makes deterministic cycling reliable even while awww is transitioning.
+    if awww img "$image" --transition-type "$transition" \
+        --transition-duration 1.05 --transition-fps 60 \
+        --transition-bezier .22,1,.36,1 >/dev/null 2>&1; then
+        printf '%s\n' "$image" > "$CURRENT_FILE"
+    else
+        notify "Could not set wallpaper: ${image##*/}"
+        return 1
+    fi
+
+    # No success notification: the wallpaper itself is the feedback. Keeping
+    # this synchronous prevents an older color job from winning during cycling.
+    if [[ -x "$THEME_SCRIPT" ]]; then
+        "$THEME_SCRIPT" "$image" >/dev/null 2>&1 || true
+    fi
+}
+
+cycle_wallpaper() {
+    # $1 = next or previous. New images enter from the matching side.
+    local direction="${1:-next}" current index=-1 target transition i
+    local -a files=()
+    mapfile -t files < <(cut -f1 "$LIBRARY")
+    (( ${#files[@]} > 0 )) || { notify "No wallpapers found in $WALLPAPER_DIR"; return 0; }
+
+    current="$(current_wallpaper)"
+    for i in "${!files[@]}"; do
+        if [[ "${files[$i]}" == "$current" ]]; then index="$i"; break; fi
+    done
+
+    if [[ "$direction" == "previous" ]]; then
+        if (( index < 0 )); then
+            target=$((${#files[@]} - 1))
+        else
+            target=$(( (index - 1 + ${#files[@]}) % ${#files[@]} ))
+        fi
+        transition="left"
+    else
+        target=$(( (index + 1) % ${#files[@]} ))
+        transition="right"
+    fi
+    apply_wallpaper "${files[$target]}" "$transition"
 }
 
 random_wallpaper() {
@@ -206,12 +259,14 @@ mkdir -p "$CACHE_DIR"
 library_fresh || scan_library
 
 case "${1:-}" in
+    ""|--next)    cycle_wallpaper next ;;
+    --previous)    cycle_wallpaper previous ;;
     --build-cache) build_cache ;;
     --browse)      browse "${2:-ALL}" ;;
-    --random)      random_wallpaper "${2:-ALL}" ;;
-    "")
+    --menu)
         scope="$(pick_category)" || exit 0
         if [[ "$scope" == "RANDOM" ]]; then random_wallpaper "ALL"; else browse "$scope"; fi
         ;;
-    *) echo "usage: wallpaper-picker.sh [--browse <cat>|--build-cache|--random [category]]" >&2; exit 1 ;;
+    --random)      random_wallpaper "${2:-ALL}" ;;
+    *) echo "usage: wallpaper-picker.sh [--next|--previous|--browse <cat>|--menu|--build-cache|--random [category]]" >&2; exit 1 ;;
 esac

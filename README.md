@@ -21,30 +21,49 @@ Noctalia is intentionally disabled and nothing here depends on it.
 ├── install.sh                  # symlink installer with backups + conflict prompt
 ├── emergency-restore.sh        # one-command rollback to newest backup
 ├── waybar/
-│   ├── config.jsonc            # layout + modules
-│   ├── style.css               # liquid-glass theme
+│   ├── config.jsonc            # layout + modules (Hyprland)
+│   ├── config-sway.jsonc       # same islands, sway/workspaces (Sway)
+│   ├── style.css               # liquid-glass theme (+ matugen.css import)
+│   ├── matugen.css             # fallback palette (copied; regenerated per wallpaper)
 │   └── scripts/
-│       ├── power-menu.sh       # rofi power menu (wlogout fallback)
+│       ├── power-menu.sh       # rofi power menu (wlogout fallback, +Suspend)
 │       ├── wifi-menu.sh        # rofi Wi-Fi menu (see below)
 │       ├── bluetooth-menu.sh   # rofi Bluetooth menu
-│       ├── screenshot-menu.sh  # rofi screenshots (fullscreen/region/window)
+│       ├── screenshot-menu.sh  # silent capture (fullscreen/region/window)
 │       ├── screenrecord-menu.sh # rofi screen recorder (fullscreen/region/stop)
+│       ├── wallpaper-theme.sh  # animated Waybar colors from the wallpaper
 │       └── battery-info.sh     # battery details popup (see below)
 ├── hypr/
 │   ├── README.md
 │   ├── config/
 │   │   ├── waybar.lua          # blur layer rules for waybar/rofi/wlogout
 │   │   ├── capture.lua         # volume key binds (F2/F3 + XF86Audio*)
-│   │   └── session.lua         # wlogout/lock/power keybinds
+│   │   ├── session.lua         # wlogout/lock/power keybinds
+│   │   └── matugen.lua         # fallback accent (copied; matugen regenerates)
 │   └── scripts/cursor-wiggle.py # shake-to-find-cursor daemon
+├── sway/
+│   ├── README.md               # side-by-side Sway session (Hyprland stays default)
+│   └── config                # sway session reusing waybar-sway + wlogout + mako
+├── swaylock/config             # Sway lock screen (swayidle + Super+L)
+├── matugen/                    # wallpaper-driven colors (optional, graceful)
+│   ├── README.md
+│   ├── config.toml             # wallpaper set=false, 4 templates
+│   └── templates/              # waybar / kitty / rofi / hypr templates
+├── sddm/                       # side-by-side login config (reference only, greetd stays)
+│   ├── README.md
+│   ├── 10-theme.conf
+│   └── 10-wayland.conf
 ├── wlogout/                    # overlay power menu (layout, style, icons)
-├── kitty/kitty.conf            # standalone, no theme includes
+├── kitty/
+│   ├── kitty.conf            # standalone + `include colors.conf`
+│   └── colors.conf           # fallback palette (copied; matugen regenerates)
 ├── btop/btop.conf              # minimal overrides, built-in theme
 ├── mako/config                 # notifications: 7s timeout, critical persists
 ├── rofi/
-│   ├── wallpaper-picker.sh     # visual wallpaper browser (see below)
-│   ├── wallpaper.rasi          # filmstrip theme (picker only)
-│   └── wallpaper-menu.rasi     # category menu theme (picker only)
+│   ├── wallpaper-picker.sh     # GUI-free animated wallpaper cycling
+│   ├── wallpaper.rasi          # optional manual filmstrip theme
+│   ├── wallpaper-menu.rasi     # optional manual category theme
+│   └── matugen.rasi            # fallback accent (copied; matugen regenerates)
 ├── fingerprint/                # manual Goodix 27c6:5503 notes — never auto-run
 ├── config-files/               # on-demand reference helpers, nothing symlinked
 └── wallpapers/README.md        # wallpapers live in ~/Pictures/Wallpapers
@@ -115,8 +134,9 @@ Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
   - Notification bell with unread count; **click** opens a rofi
     notification center (visible + history, dismiss-all action).
   - Screenshot camera; **click** opens a rofi menu: fullscreen,
-    region (`slurp`), active window, 3s delay. Saves to
-    `~/Pictures/Screenshots/`, copies to clipboard, opens
+    region (`slurp`), active window, 3s delay. Capture itself is silent,
+    so no countdown notification can be embedded in the image. Saves to
+    `~/Pictures/Screenshots/`, copies to clipboard, and opens
     `swappy`/`satty` if installed.
   - Screen recorder; **click** opens a rofi menu: fullscreen,
     region, stop. Saves `.mp4` to `~/Videos/Recordings/`
@@ -127,21 +147,20 @@ Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
 - Subtle 0.2s transitions on hover/state changes; compact sizing
   tuned for 1080p @ 1.5x.
 
-## Wallpapers (rofi picker + awww)
+## Wallpapers (minimal cycling + awww)
 
-- Press **Super+Shift+W** to open the visual browser: pick a category
-  (detected from your folder names), then scroll the thumbnail filmstrip.
-  **Enter** applies instantly, **Esc** cancels. Type to filter anytime.
-- The current wallpaper is marked (●) and pre-selected on open.
-  The category menu also offers **Random wallpaper**.
-- Applies via `awww` with a `center` grow transition (~0.9s, 60fps —
-  no fade). Library: `~/Pictures/Wallpapers` by default; override with
-  `$WALLPAPER_DIR` or a path in `~/.config/my-local-configs/wallpaper-dir`
-  (static jpg/jpeg/png/webp/bmp; GIF/video/animated-webp excluded).
-- Thumbnails are cached in `~/.cache/wallpaper-picker/` (built once by
-  `install.sh`, refreshed automatically when you add/remove images).
-- Your launcher theme is untouched: the picker uses its own
-  `wallpaper.rasi` / `wallpaper-menu.rasi` via `rofi -config`.
+- **Super+Shift+W** now changes directly to the next wallpaper. There is
+  no picker, category window, notification, or other GUI in the shortcut.
+- Wallpapers move horizontally with a 1.05s eased `awww` transition instead
+  of a basic fade. Run `wallpaper-picker.sh --previous` to move backward.
+- Every change regenerates the Waybar palette and replays a short color
+  transition. Matugen is used when installed; otherwise the included
+  `wallpaper-theme.sh` derives colors with Python Pillow.
+- Library: `~/Pictures/Wallpapers` by default; override with `$WALLPAPER_DIR`
+  or a path in `~/.config/my-local-configs/wallpaper-dir` (static
+  jpg/jpeg/png/webp/bmp; GIF/video/animated-webp excluded).
+- The old thumbnail filmstrip is still available only when explicitly run as
+  `wallpaper-picker.sh --browse ALL`; `--menu` opens its category menu.
 
 ## Notifications (mako)
 
@@ -170,11 +189,42 @@ Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
 - The bar's power pill and **Super+Alt+C** open the `wlogout` overlay —
   a Wayland layer-shell surface, so Waybar never moves or restarts.
   Blur comes from the `wlogout` layer rule in `hypr/config/waybar.lua`.
-- Fast lock: **Super+L** (`hyprlock`, falls back to `loginctl lock-session`).
+  Five buttons: **Lock / Logout (= Signout) / Suspend / Reboot / Shutdown**.
+- Fast lock: **Super+L** (`hyprlock` → `swaylock -f` → `loginctl` fallback).
 - Direct actions (no menu): **Super+Alt+L** lock · **Super+Alt+E** logout ·
   **Super+Alt+S** suspend · **Super+Alt+R** reboot · **Super+Alt+P** shutdown.
+- Portable across compositors: layout actions try
+  `hyprctl` → `swaymsg` → `loginctl`, so the same overlay works in Sway.
+  The rofi fallback (`power-menu.sh`) includes Suspend too.
 - Hibernate is intentionally omitted: this machine only has zram swap.
-- Keybinds live in `hypr/config/session.lua`; `binds.lua` is untouched.
+- Keybinds live in `hypr/config/session.lua` (Hyprland) and `sway/config`
+  (Sway); `binds.lua` is untouched.
+
+## Sway (side-by-side WM)
+
+- Hyprland stays default. `sway/config` reuses the same Waybar islands
+  (`waybar/config-sway.jsonc`: `sway/workspaces` + `sway/mode` left,
+  identical right modules), the same wlogout overlay, mako, rofi, kitty.
+- Launch: `sway` from a TTY or pick Sway in the greeter.
+  Stop: Super+Alt+E or the wlogout overlay. See `sway/README.md`.
+- Install: `sudo pacman -S sway swaylock swayidle swaybg`.
+
+## Theming details (matugen + fallback)
+
+- Every wallpaper change regenerates `~/.config/waybar/matugen.css`
+  (see “Wallpapers” above). With matugen installed, `matugen/config.toml`
+  additionally recolors kitty (`colors.conf`), rofi (`matugen.rasi`) and
+  the Hypr accent (`config/matugen.lua`) from the same wallpaper.
+- Generated files are real files (never symlinks); install.sh only copies
+  fallbacks when missing, never clobbering generated output.
+- Details in `matugen/README.md`.
+
+## Login screen / SDDM (side-by-side reference)
+
+- The system uses **greetd + noctalia-greeter**; `sddm/` never activates
+  automatically and install.sh never touches `/etc` or switches greeters.
+- To try SDDM: install it, `sudo cp sddm/*.conf /etc/sddm.conf.d/`,
+  set a theme, test with `sddm-greeter --test-mode`. Steps in `sddm/README.md`.
 
 ## Known upstream quirk (Hyprland Lua build)
 

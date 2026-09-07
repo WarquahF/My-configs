@@ -1,0 +1,6 @@
+/* Fallback when matugen has never run (copied, never symlinked). */
+* {
+    matugen-accent: #89b4fa;
+    matugen-surface: #101218;
+    matugen-on-surface: #e8eaf0;
+}
