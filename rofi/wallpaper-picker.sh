@@ -144,41 +144,74 @@ library_fresh() {
     [[ "$(cat "$SCAN_STAMP" 2>/dev/null)" == "$(library_signature)" ]]
 }
 
-# --- thumbnails: 360px JPEGs keyed by path hash, rebuilt when stale ---------
-thumb_for() {
-    # $1 = source image. Echoes thumb path; returns nonzero when unusable.
-    local src="$1" key out
-    key="$(printf '%s' "$src" | sha1sum | cut -d' ' -f1)"
-    out="$THUMB_DIR/$key.jpg"
-    if [[ -f "$out" && ! "$src" -nt "$out" ]]; then printf '%s' "$out"; return 0; fi
+# --- thumbnails: 360px JPEGs keyed by path hash --------------------------------
+# One Python process ensures every in-scope thumbnail exists and prints
+# "path<TAB>thumb<TAB>category" for each. Doing this in a single process is the
+# whole reason the picker opens fast: the previous per-file version forked
+# sha1sum once per wallpaper (~1600 forks, measured ~2.2s before rofi even
+# appeared). Pillow is imported lazily so a machine with a prebuilt cache but
+# no Pillow still lists the thumbnails it already has.
+ensure_thumbs() {
+    # $1 = scope (ALL or a category); $2 = "progress" to log counts to stderr.
     mkdir -p "$THUMB_DIR"
-    if python3 - "$src" "$out" "$THUMB_SIZE" <<'EOF' 2>/dev/null; then
-import sys
-from PIL import Image
-src, dst, size = sys.argv[1], sys.argv[2], int(sys.argv[3])
-im = Image.open(src)
-im.draft('RGB', (size, size))
-im.load()
-im.thumbnail((size, size // 16 * 9))
-im.convert('RGB').save(dst, quality=84)
-EOF
-        printf '%s' "$out"; return 0
-    fi
-    return 1
+    python3 - "$LIBRARY" "$THUMB_DIR" "$THUMB_SIZE" "$1" "${2:-}" <<'PY'
+import hashlib, os, sys
+
+library, thumb_dir, size, scope = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
+progress = len(sys.argv) > 5 and sys.argv[5] == "progress"
+
+try:
+    from PIL import Image
+    have_pil = True
+except Exception:
+    have_pil = False
+
+rows = []
+with open(library, encoding="utf-8") as handle:
+    for line in handle:
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) < 3:
+            continue
+        path, category = parts[0], parts[2]
+        if scope != "ALL" and category != scope:
+            continue
+        rows.append((path, category))
+
+total, built = len(rows), 0
+for index, (path, category) in enumerate(rows, 1):
+    key = hashlib.sha1(path.encode("utf-8")).hexdigest()
+    thumb = os.path.join(thumb_dir, key + ".jpg")
+    try:
+        stale = (not os.path.exists(thumb)) or os.path.getmtime(path) > os.path.getmtime(thumb)
+    except OSError:
+        stale = True
+    if stale and have_pil:
+        try:
+            image = Image.open(path)
+            image.draft("RGB", (size, size))
+            image.load()
+            image.thumbnail((size, size * 9 // 16))
+            image.convert("RGB").save(thumb, "JPEG", quality=84)
+            built += 1
+        except Exception:
+            pass
+    if os.path.exists(thumb):
+        sys.stdout.write(f"{path}\t{thumb}\t{category}\n")
+    if progress and index % 200 == 0:
+        sys.stderr.write(f"thumbnails {index}/{total}\n")
+        sys.stderr.flush()
+if progress:
+    sys.stderr.write(f"cache ready: {total} images ({built} built)\n")
+    sys.stderr.flush()
+PY
 }
 
 build_cache() {
-    # Full (re)scan + every thumbnail. One-time cost (~1ms/scan row,
-    # ~80ms/thumb); subsequent opens only fill gaps.
-    local total=0 done=0 f
+    # Full (re)scan, then build every missing thumbnail in one pass. Instant
+    # no-op when the cache is already complete. Rows go to /dev/null; the
+    # progress + summary lines land on stderr, which install.sh captures.
     library_fresh || scan_library
-    total="$(wc -l < "$LIBRARY")"
-    while IFS=$'\t' read -r f _ _; do
-        thumb_for "$f" >/dev/null || true
-        done=$(( done + 1 ))
-        (( done % 200 == 0 )) && printf 'thumbnails %s/%s\n' "$done" "$total"
-    done < "$LIBRARY"
-    printf 'cache ready: %s images\n' "$total"
+    ensure_thumbs ALL progress >/dev/null
 }
 
 # --- rofi frontends -----------------------------------------------------------
@@ -200,39 +233,75 @@ pick_category() {
 }
 
 browse() {
-    # $1 = category or ALL. Card browser; applies the pick, Esc cancels.
-    local scope="$1" current
+    # $1 = category or ALL. Grid of every wallpaper as a live preview; the
+    # focused cell enlarges, clicking or Enter applies, Esc cancels.
+    local scope="$1" current accent
     local -a files=() thumbs=() labels=()
-    local f _ cat thumb label
+    local f thumb cat label
     current="$(current_wallpaper)"
-    while IFS=$'\t' read -r f _ cat; do
-        if [[ "$scope" != "ALL" && "$cat" != "$scope" ]]; then continue; fi
-        thumb="$(thumb_for "$f")" || continue
+    # ensure_thumbs is one process (see above); this loop is pure bash builtins.
+    while IFS=$'\t' read -r f thumb cat; do
         files+=("$f"); thumbs+=("$thumb")
         if [[ "$scope" == "ALL" ]]; then label="$cat/${f##*/}"; else label="${f##*/}"; fi
         [[ "$f" == "$current" ]] && label="● $label"
         labels+=("$label")
-    done < "$LIBRARY"
+    done < <(ensure_thumbs "$scope")
     (( ${#files[@]} > 0 )) || { notify "No wallpapers in scope: $scope"; return 0; }
 
+    # Pre-select (and so pre-enlarge) the wallpaper already on screen, so the
+    # grid opens focused on what you are looking at.
     local sel="" i
     for i in "${!files[@]}"; do
         if [[ "${files[$i]}" == "$current" ]]; then sel="-selected-row $i"; break; fi
     done
+
+    # Tint the focus border with the live wallpaper accent, so the picker
+    # matches the desktop it is sitting on. Absent file -> theme default.
+    local -a accent_arg=()
+    accent="$(sed -n 's/^@define-color accent #\([0-9a-fA-F]\{6\}\);$/\1/p' \
+        "$HOME/.config/waybar/matugen.css" 2>/dev/null | head -n1)"
+    [[ -n "$accent" ]] && accent_arg=(-theme-str "* { accent: #$accent; }")
+
     # shellcheck disable=SC2086
     local idx
     idx="$({ for i in "${!files[@]}"; do
         printf '%s\0icon\x1f%s\n' "${labels[$i]}" "${thumbs[$i]}"
     done } | rofi -dmenu -config "$THEME" -show-icons -i -p "Wallpapers" \
-        -mesg "$scope · ${#files[@]} wallpapers · Enter applies · Esc cancels" \
-        $sel -format i)" || return 0
+        "${accent_arg[@]}" $sel -format i)" || return 0
     [[ "$idx" =~ ^[0-9]+$ ]] || return 0
     apply_wallpaper "${files[$idx]}"
 }
 
+# awww's grow/outer transitions take a centre point. Grow the new wallpaper
+# out from the mouse cursor, so applying feels like it comes from where you
+# clicked. Percentages (floats) keep it scale-independent, and --invert-y
+# flips hyprctl's top-left origin to awww's bottom-left one.
+cursor_fraction() {
+    command -v hyprctl >/dev/null 2>&1 || return 1
+    python3 - <<'PY' 2>/dev/null
+import json, subprocess, sys
+try:
+    raw = subprocess.check_output(["hyprctl", "cursorpos"]).decode().strip()
+    cx, cy = (int(v.strip()) for v in raw.split(","))
+    monitors = json.loads(subprocess.check_output(["hyprctl", "-j", "monitors"]))
+except Exception:
+    sys.exit(1)
+monitor = next((m for m in monitors if m.get("focused")), monitors[0] if monitors else None)
+if not monitor:
+    sys.exit(1)
+width = monitor["width"] / monitor["scale"]
+height = monitor["height"] / monitor["scale"]
+fx = min(max((cx - monitor["x"]) / width, 0.0), 1.0)
+fy = min(max((cy - monitor["y"]) / height, 0.0), 1.0)
+print(f"{fx:.4f},{fy:.4f}")
+PY
+}
+
 apply_wallpaper() {
-    # $1 = image path; $2 = awww direction/effect (defaults to a center reveal).
-    local image="$1" transition="${2:-center}"
+    # $1 = image path; $2 = awww transition. Default is a grow from the cursor:
+    # the zesty reveal used when you pick from the grid. cycle_wallpaper passes
+    # left/right, so blind cycling still slides in from the matching side.
+    local image="$1" transition="${2:-grow}"
     ensure_daemon || return 1
 
     # Ignore repeat-key overlap instead of letting old transitions/colors win.
@@ -241,11 +310,18 @@ apply_wallpaper() {
         flock -n 9 || return 0
     fi
 
-    # Ease-out movement feels like scrolling instead of a hard wipe. The state
-    # file makes deterministic cycling reliable even while awww is transitioning.
-    if awww img "$image" --transition-type "$transition" \
-        --transition-duration 1.05 --transition-fps 60 \
-        --transition-bezier .22,1,.36,1 >/dev/null 2>&1; then
+    # A long, strong ease-out at 90fps reads as "zesty" without a hard wipe.
+    local -a targs=(--transition-type "$transition" --transition-fps 90 \
+        --transition-duration 1.2 --transition-bezier .16,1,.3,1)
+    case "$transition" in
+        grow|outer)
+            local pos; pos="$(cursor_fraction)" \
+                && targs+=(--transition-pos "$pos" --invert-y)
+            ;;
+        wipe|wave) targs+=(--transition-angle 30) ;;
+    esac
+
+    if awww img "$image" "${targs[@]}" >/dev/null 2>&1; then
         printf '%s\n' "$image" > "$CURRENT_FILE"
     else
         notify "Could not set wallpaper: ${image##*/}"

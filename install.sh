@@ -130,6 +130,7 @@ add_link "mako/config"      ".config/mako/config"
 add_link "rofi/wallpaper-picker.sh" ".config/rofi/wallpaper-picker.sh"
 add_link "rofi/wallpaper.rasi"      ".config/rofi/wallpaper.rasi"
 add_link "rofi/wallpaper-menu.rasi" ".config/rofi/wallpaper-menu.rasi"
+add_link "rofi/power.rasi"          ".config/rofi/power.rasi"
 add_link "wlogout/layout"    ".config/wlogout/layout"
 add_link "wlogout/style.css" ".config/wlogout/style.css"
 for f in "$REPO_DIR"/wlogout/icons/*.png; do

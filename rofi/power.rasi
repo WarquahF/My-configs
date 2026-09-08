@@ -1,0 +1,67 @@
+/* Power menu theme (rofi fallback for power-menu.sh) — Liquid Glass.
+ * A single row of five icon tiles: Lock / Logout / Suspend / Reboot /
+ * Shutdown. Icons are the same white glyphs wlogout uses
+ * (~/.config/wlogout/icons/*.png), so both power menus look the same. */
+configuration {
+    show-icons: true;
+}
+
+* {
+    font: "MesloLGS Nerd Font Mono 12";
+    background-color: transparent;
+    text-color: #FFFFFFFF;
+}
+
+window {
+    location: center;
+    anchor: center;
+    width: 640px;
+    background-color: #0D0F14E6;
+    border: 1px;
+    border-color: #FFFFFF1F;
+    border-radius: 18px;
+    padding: 24px;
+}
+
+mainbox {
+    children: [ listview ];
+}
+
+listview {
+    columns: 5;
+    lines: 1;
+    spacing: 14px;
+    scrollbar: false;
+    background-color: transparent;
+}
+
+element {
+    orientation: vertical;
+    padding: 18px 10px;
+    spacing: 12px;
+    border: 1px;
+    border-color: #FFFFFF14;
+    border-radius: 14px;
+    background-color: #16181CB3;
+}
+
+element selected.normal {
+    background-color: #FFFFFF1F;
+    border-color: #FFFFFF3D;
+}
+
+element-icon {
+    size: 48px;
+    horizontal-align: 0.5;
+    background-color: transparent;
+}
+
+element-text {
+    horizontal-align: 0.5;
+    text-color: #FFFFFFCC;
+    background-color: transparent;
+}
+
+element-text selected {
+    text-color: #FFFFFFFF;
+}
