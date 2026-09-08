@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Monolith</title>
+  <desc id="desc">Minimal monochrome monolith in a foggy dark landscape.</desc>
+  <defs>
+    <linearGradient id="fog" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#050506"/><stop offset=".52" stop-color="#202125"/><stop offset="1" stop-color="#090a0c"/></linearGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#35373d"/><stop offset=".4" stop-color="#131418"/><stop offset="1" stop-color="#050506"/></linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffffff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="42"/></filter>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".55" numOctaves="5"/><feColorMatrix values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 .075 0"/></filter>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#fog)"/>
+  <path d="M1120 0h610L950 1080H540Z" fill="url(#beam)" opacity=".32" filter="url(#blur)"/>
+  <ellipse cx="970" cy="790" rx="780" ry="175" fill="#d5d8e1" opacity=".07" filter="url(#blur)"/>
+  <path d="M810 840 850 205h270l56 635Z" fill="url(#stone)" stroke="#858892" stroke-opacity=".2" stroke-width="2"/>
+  <path d="m850 205 142 58 128-58" fill="#4b4e55" opacity=".55"/>
+  <path d="M0 860c400-80 650-57 965 40 330 103 603 91 955-22v202H0Z" fill="#060709"/>
+  <rect width="1920" height="1080" filter="url(#grain)"/>
+</svg>

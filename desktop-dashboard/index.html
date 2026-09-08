@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090c13">
+  <meta name="description" content="A local-first minimalist desktop dashboard with wallpaper coverflow, glass UI, music controls, and a command palette.">
+  <title>Still — Desktop Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#dashboard">Skip to dashboard</a>
+
+  <div class="wallpaper-layer wallpaper-layer--a is-visible" aria-hidden="true"></div>
+  <div class="wallpaper-layer wallpaper-layer--b" aria-hidden="true"></div>
+  <div class="wallpaper-shade" aria-hidden="true"></div>
+  <div class="noise" aria-hidden="true"></div>
+
+  <svg class="svg-sprite" aria-hidden="true">
+    <symbol id="icon-grid" viewBox="0 0 24 24"><path d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z"/></symbol>
+    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></symbol>
+    <symbol id="icon-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="icon-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="icon-play" viewBox="0 0 24 24"><path class="fill" d="m8 5 11 7-11 7z"/></symbol>
+    <symbol id="icon-pause" viewBox="0 0 24 24"><path class="fill" d="M7 5h4v14H7zm6 0h4v14h-4z"/></symbol>
+    <symbol id="icon-skip-back" viewBox="0 0 24 24"><path d="M6 5v14m12-13-9 6 9 6z"/></symbol>
+    <symbol id="icon-skip-forward" viewBox="0 0 24 24"><path d="M18 5v14M6 6l9 6-9 6z"/></symbol>
+    <symbol id="icon-rewind" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><text x="9" y="16" font-size="8" class="fill stroke-none">10</text></symbol>
+    <symbol id="icon-forward" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/><text x="8" y="16" font-size="8" class="fill stroke-none">10</text></symbol>
+    <symbol id="icon-volume" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10z"/><path d="M16 9a4 4 0 0 1 0 6m2-8a7 7 0 0 1 0 10"/></symbol>
+    <symbol id="icon-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3m5 0h5"/></symbol>
+    <symbol id="icon-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m4 17 5-4 3 3 3-2 5 4"/></symbol>
+    <symbol id="icon-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></symbol>
+    <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v10H3z"/></symbol>
+    <symbol id="icon-sliders" viewBox="0 0 24 24"><path d="M4 7h10m4 0h2M4 17h2m4 0h10M14 4v6M6 14v6"/></symbol>
+    <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="icon-spark" viewBox="0 0 24 24"><path d="m12 2 1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6z"/></symbol>
+  </svg>
+
+  <div class="desktop-shell">
+    <header class="topbar glass-surface">
+      <div class="brand" aria-label="Still dashboard">
+        <span class="brand__mark"><span></span></span>
+        <span class="brand__name">still</span>
+        <span class="brand__workspace">/ focus</span>
+      </div>
+
+      <div class="topbar__center" aria-label="Workspace switcher">
+        <button class="workspace-dot is-active" type="button" aria-label="Workspace 1" aria-current="true">1</button>
+        <button class="workspace-dot" type="button" aria-label="Workspace 2">2</button>
+        <button class="workspace-dot" type="button" aria-label="Workspace 3">3</button>
+      </div>
+
+      <div class="topbar__actions">
+        <span class="status-chip"><span class="status-chip__dot"></span>local demo</span>
+        <button class="command-trigger" id="commandTrigger" type="button" aria-haspopup="dialog" aria-controls="launcher">
+          <svg><use href="#icon-search"></use></svg>
+          <span>Command</span>
+          <kbd>Ctrl K</kbd>
+        </button>
+        <time class="menubar-time" id="menubarTime" datetime="">00:00</time>
+      </div>
+    </header>
+
+    <main class="dashboard" id="dashboard">
+      <section class="tile wallpaper-tile glass-surface" aria-labelledby="wallpaperHeading">
+        <header class="tile__header">
+          <div>
+            <p class="eyebrow">Wallpaper deck</p>
+            <h1 id="wallpaperHeading">Choose your atmosphere</h1>
+          </div>
+          <div class="header-controls">
+            <button class="icon-button" id="previousWallpaper" type="button" aria-label="Previous wallpaper"><svg><use href="#icon-chevron-left"></use></svg></button>
+            <button class="icon-button" id="nextWallpaper" type="button" aria-label="Next wallpaper"><svg><use href="#icon-chevron-right"></use></svg></button>
+          </div>
+        </header>
+
+        <div class="coverflow" id="coverflow" aria-roledescription="carousel" aria-label="Wallpaper carousel">
+          <div class="coverflow__glow" aria-hidden="true"></div>
+          <div class="coverflow__viewport" id="coverflowViewport">
+            <div class="coverflow__track" id="wallpaperTrack" role="listbox" aria-label="Available wallpapers"></div>
+          </div>
+        </div>
+
+        <footer class="wallpaper-footer">
+          <div class="wallpaper-copy" aria-live="polite">
+            <span class="wallpaper-copy__index" id="wallpaperIndex">01</span>
+            <div>
+              <strong id="wallpaperName">Midnight Aurora</strong>
+              <span id="wallpaperMood">quiet / electric</span>
+            </div>
+          </div>
+          <div class="carousel-pagination" id="wallpaperPagination" aria-label="Choose wallpaper"></div>
+          <p class="interaction-hint">drag · scroll · arrows</p>
+        </footer>
+      </section>
+
+      <aside class="right-stack" aria-label="Desktop widgets">
+        <section class="tile player-tile glass-surface" id="musicWidget" aria-labelledby="nowPlayingHeading">
+          <header class="player-header">
+            <div>
+              <p class="eyebrow">Now playing</p>
+              <h2 id="nowPlayingHeading">Spotify mock</h2>
+            </div>
+            <span class="live-pill"><span></span>playing locally</span>
+          </header>
+
+          <div class="album-wrap">
+            <img id="albumArt" src="assets/wallpapers/aurora.svg" alt="Midnight Aurora album artwork">
+            <div class="album-sheen" aria-hidden="true"></div>
+            <div class="equalizer" id="equalizer" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          </div>
+
+          <div class="track-row">
+            <div class="track-copy">
+              <h3 id="trackTitle">Afterglow</h3>
+              <p id="trackArtist">Lunar Static</p>
+            </div>
+            <span class="track-number" id="trackNumber">01 / 04</span>
+          </div>
+
+          <div class="progress-group">
+            <input id="seekBar" class="range-control seek-control" type="range" min="0" max="100" value="18" step="0.1" aria-label="Track position">
+            <div class="time-row"><span id="currentTime">0:43</span><span id="duration">3:58</span></div>
+          </div>
+
+          <div class="player-controls" aria-label="Playback controls">
+            <button class="player-button player-button--quiet" id="previousTrack" type="button" aria-label="Previous track"><svg><use href="#icon-skip-back"></use></svg></button>
+            <button class="player-button player-button--quiet hide-compact" id="rewindTrack" type="button" aria-label="Rewind 10 seconds"><svg><use href="#icon-rewind"></use></svg></button>
+            <button class="player-button player-button--primary" id="playPause" type="button" aria-label="Play">
+              <svg class="play-icon"><use href="#icon-play"></use></svg>
+              <svg class="pause-icon"><use href="#icon-pause"></use></svg>
+            </button>
+            <button class="player-button player-button--quiet hide-compact" id="forwardTrack" type="button" aria-label="Forward 10 seconds"><svg><use href="#icon-forward"></use></svg></button>
+            <button class="player-button player-button--quiet" id="nextTrack" type="button" aria-label="Next track"><svg><use href="#icon-skip-forward"></use></svg></button>
+          </div>
+
+          <div class="volume-row">
+            <svg><use href="#icon-volume"></use></svg>
+            <input id="volumeBar" class="range-control" type="range" min="0" max="100" value="72" aria-label="Volume">
+            <span id="volumeValue">72</span>
+          </div>
+          <audio id="audioPlayer" preload="metadata"></audio>
+        </section>
+
+        <section class="tile glance-tile glass-surface" aria-labelledby="glanceHeading">
+          <div class="clock-block">
+            <p class="eyebrow" id="glanceHeading">At a glance</p>
+            <time id="largeClock" class="large-clock" datetime="">00:00</time>
+            <p id="fullDate" class="full-date">Monday, 1 January</p>
+          </div>
+          <div class="focus-block">
+            <div class="focus-block__top"><span>Focus session</span><strong>42m</strong></div>
+            <div class="focus-meter"><span></span></div>
+            <p>One task. No noise.</p>
+          </div>
+          <button class="launcher-prompt" id="launcherPrompt" type="button">
+            <span class="launcher-prompt__icon"><svg><use href="#icon-grid"></use></svg></span>
+            <span><strong>Open launcher</strong><small>Search apps and actions</small></span>
+            <kbd>Ctrl K</kbd>
+          </button>
+        </section>
+      </aside>
+    </main>
+
+    <nav class="dock glass-surface" aria-label="Application dock">
+      <button class="dock__item is-active" type="button" data-app="wallpapers" aria-label="Wallpapers"><svg><use href="#icon-image"></use></svg><span>Wallpapers</span></button>
+      <button class="dock__item" type="button" data-app="music" aria-label="Music"><svg><use href="#icon-music"></use></svg><span>Music</span></button>
+      <button class="dock__item" type="button" data-app="files" aria-label="Files"><svg><use href="#icon-folder"></use></svg><span>Files</span></button>
+      <button class="dock__item" type="button" data-app="terminal" aria-label="Terminal"><svg><use href="#icon-terminal"></use></svg><span>Terminal</span></button>
+      <button class="dock__item" type="button" data-app="settings" aria-label="Settings"><svg><use href="#icon-sliders"></use></svg><span>Settings</span></button>
+    </nav>
+  </div>
+
+  <div class="launcher" id="launcher" role="dialog" aria-modal="true" aria-labelledby="launcherTitle" hidden>
+    <button class="launcher__scrim" type="button" data-close-launcher aria-label="Close launcher"></button>
+    <section class="launcher__panel glass-surface">
+      <header class="launcher__search">
+        <svg><use href="#icon-search"></use></svg>
+        <label class="sr-only" for="launcherInput" id="launcherTitle">Command palette</label>
+        <input id="launcherInput" type="search" placeholder="Search apps or type a command…" autocomplete="off">
+        <kbd>Esc</kbd>
+      </header>
+      <div class="launcher__meta"><span>Applications</span><span><kbd>↑</kbd><kbd>↓</kbd> navigate · <kbd>Enter</kbd> open</span></div>
+      <div class="launcher__results" id="launcherResults" role="listbox" aria-label="Applications"></div>
+      <footer class="launcher__footer"><span><i class="key-dot key-dot--accent"></i>selected</span><span><i class="key-dot"></i>local-only demo</span></footer>
+    </section>
+  </div>
+
+  <section class="app-window glass-surface" id="appWindow" role="dialog" aria-modal="false" aria-labelledby="appWindowTitle" hidden>
+    <header class="app-window__header">
+      <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+      <h2 id="appWindowTitle">Application</h2>
+      <button class="icon-button" id="closeAppWindow" type="button" aria-label="Close window"><svg><use href="#icon-close"></use></svg></button>
+    </header>
+    <div class="app-window__content" id="appWindowContent"></div>
+  </section>
+
+  <div class="toast glass-surface" id="toast" role="status" aria-live="polite">
+    <svg><use href="#icon-spark"></use></svg>
+    <span id="toastText">Wallpaper changed</span>
+  </div>
+</body>
+</html>

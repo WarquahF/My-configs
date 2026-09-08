@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Sakura Night</title>
+  <desc id="desc">A crimson moon behind delicate abstract branches on a charcoal night.</desc>
+  <defs>
+    <radialGradient id="moon"><stop stop-color="#ffd6dc"/><stop offset=".54" stop-color="#ff607b"/><stop offset="1" stop-color="#a20e31"/></radialGradient>
+    <linearGradient id="night" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#080609"/><stop offset=".55" stop-color="#160910"/><stop offset="1" stop-color="#070609"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="38"/></filter>
+    <filter id="grain"><feTurbulence baseFrequency=".8" numOctaves="3"/><feColorMatrix values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 .05 0"/></filter>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#night)"/>
+  <circle cx="1325" cy="390" r="250" fill="#ff355d" opacity=".18" filter="url(#glow)"/>
+  <circle cx="1325" cy="390" r="175" fill="url(#moon)"/>
+  <path d="M0 980c335-180 413-425 702-520 174-57 350-18 554-167M514 537c-27-154-112-253-244-337M715 454c120-160 266-250 446-267M250 820c190 3 348 63 468 195" fill="none" stroke="#190d12" stroke-width="32" stroke-linecap="round"/>
+  <g fill="#ff9bad" opacity=".9">
+    <circle cx="515" cy="505" r="12"/><circle cx="600" cy="470" r="8"/><circle cx="704" cy="440" r="13"/><circle cx="814" cy="348" r="9"/><circle cx="930" cy="268" r="12"/><circle cx="370" cy="340" r="10"/><circle cx="290" cy="240" r="13"/><circle cx="690" cy="785" r="9"/>
+  </g>
+  <g fill="#ffd5dc" opacity=".55"><circle cx="560" cy="420" r="4"/><circle cx="865" cy="300" r="5"/><circle cx="1075" cy="205" r="4"/><circle cx="425" cy="380" r="5"/></g>
+  <rect width="1920" height="1080" filter="url(#grain)"/>
+</svg>

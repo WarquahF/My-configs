@@ -1,32 +1,39 @@
-/* Wallpaper picker theme — dark horizontal filmstrip.
- * Matches the Liquid Glass desktop: near-black translucent surface,
- * subtle border, soft rounding. No gradients, no glow. */
+/* Wallpaper picker theme — a wall of live previews.
+ * Every wallpaper is a thumbnail in a scrollable grid; the focused cell
+ * enlarges and takes an accent border (the border colour is injected live
+ * from the current wallpaper by wallpaper-picker.sh via -theme-str, so the
+ * picker matches the desktop it opens over). No captions — the thumbnails
+ * are the interface. Type to filter, click or Enter to apply, Esc cancels.
+ * Liquid Glass: near-black translucent surface, hairline border, rounded. */
 * {
+    /* Overridden live per wallpaper; this is the static fallback. */
+    accent: #89b4fa;
     font: "MesloLGS Nerd Font Mono 11";
     background-color: transparent;
     text-color: #FFFFFFFF;
 }
 
 window {
-    /* Rasi px are logical (÷1.5 scale here): 1150 → ~1725 physical. */
-    width: 1150px;
+    width: 82%;
+    height: 82%;
     location: center;
     anchor: center;
-    background-color: #101218E6;
+    background-color: #0D0F14E6;
     border: 1px;
     border-color: #FFFFFF1F;
-    border-radius: 16px;
-    padding: 18px;
+    border-radius: 18px;
+    padding: 20px;
 }
 
 mainbox {
     children: [ inputbar, listview ];
-    spacing: 14px;
+    spacing: 16px;
 }
 
 inputbar {
     children: [ prompt, entry ];
     spacing: 10px;
+    padding: 4px 6px;
     background-color: transparent;
     text-color: #FFFFFFFF;
 }
@@ -34,55 +41,49 @@ inputbar {
 prompt, entry {
     background-color: transparent;
     text-color: #FFFFFFFF;
+    vertical-align: 0.5;
 }
 
 listview {
     columns: 5;
-    lines: 1;
-    spacing: 12px;
+    lines: 3;
+    spacing: 16px;
     scrollbar: false;
     background-color: transparent;
 }
 
+/* Icon only — no caption, so the grid reads as pure previews. Typing still
+   filters against the (hidden) category/filename label. */
 element {
-    orientation: vertical;
-    padding: 8px;
-    border-radius: 12px;
-    background-color: transparent;
-    border: 1px;
+    children: [ element-icon ];
+    padding: 6px;
+    border: 2px;
     border-color: transparent;
+    border-radius: 14px;
+    background-color: transparent;
 }
 
-/* State selectors outrank plain `element` — without these, rofi's
-   compiled-in light defaults bleed through the cards. */
+/* State selectors outrank plain `element`, or rofi's light defaults leak in. */
 element normal.normal, element alternate.normal {
     background-color: transparent;
-    text-color: #FFFFFFCC;
 }
 
+/* The focused cell: accent-tinted fill + accent border. Paired with the
+   larger selected icon below, the one you are on "comes to sharp". */
 element selected.normal, element selected.alternate {
-    background-color: #FFFFFF14;
-    border-color: #FFFFFF2E;
-    text-color: #FFFFFFFF;
+    background-color: alpha(@accent, 0.20);
+    border-color: @accent;
 }
 
 element-icon {
-    size: 200px;
-    border-radius: 8px;
-    background-color: #181B22;
+    size: 158px;
+    border-radius: 10px;
+    background-color: #14171F;
     horizontal-align: 0.5;
 }
 
+/* Enlarge the focused thumbnail; the others stay at 158px. The row grows to
+   fit, so the selected preview visibly pops out of the grid. */
 element-icon selected {
-    background-color: #20242E;
-}
-
-element-text {
-    background-color: transparent;
-    text-color: #FFFFFFCC;
-    horizontal-align: 0.5;
-}
-
-element-text selected {
-    text-color: #FFFFFFFF;
+    size: 196px;
 }

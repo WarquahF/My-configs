@@ -21,31 +21,53 @@ Noctalia is intentionally disabled and nothing here depends on it.
 ├── install.sh                  # symlink installer with backups + conflict prompt
 ├── emergency-restore.sh        # one-command rollback to newest backup
 ├── waybar/
-│   ├── config.jsonc            # layout + modules
-│   ├── style.css               # liquid-glass theme
+│   ├── config.jsonc            # layout + modules (Hyprland)
+│   ├── config-sway.jsonc       # same islands, sway/workspaces (Sway)
+│   ├── style.css               # liquid-glass theme (+ matugen.css import)
+│   ├── matugen.css             # fallback palette (copied; regenerated per wallpaper)
 │   └── scripts/
-│       ├── power-menu.sh       # rofi power menu (wlogout fallback)
+│       ├── power-menu.sh       # rofi power menu (wlogout fallback, +Suspend)
 │       ├── wifi-menu.sh        # rofi Wi-Fi menu (see below)
 │       ├── bluetooth-menu.sh   # rofi Bluetooth menu
-│       ├── screenshot-menu.sh  # rofi screenshots (fullscreen/region/window)
+│       ├── screenshot-menu.sh  # silent capture (fullscreen/region/window)
 │       ├── screenrecord-menu.sh # rofi screen recorder (fullscreen/region/stop)
+│       ├── wallpaper-theme.sh  # animated Waybar colors from the wallpaper
 │       └── battery-info.sh     # battery details popup (see below)
 ├── hypr/
 │   ├── README.md
 │   ├── config/
 │   │   ├── waybar.lua          # blur layer rules for waybar/rofi/wlogout
-│   │   ├── capture.lua         # volume key binds (F2/F3 + XF86Audio*)
+│   │   ├── capture.lua         # volume/mute/media binds (F2/F3 + XF86Audio*)
 │   │   ├── session.lua         # wlogout/lock/power keybinds
-│   │   └── navigation.lua      # Alt+Tab window switcher
+│   │   ├── navigation.lua      # Alt+Tab window switcher
+│   │   ├── wallpaper.lua       # wallpaper scroll + cycle keybinds
+│   │   ├── tiling.lua          # how tiles move + wallpaper-coloured focus glow
+│   │   └── matugen.lua         # current accent (copied; regenerated per wallpaper)
+│   ├── hyprlock.conf           # lock screen: current wallpaper + now playing
 │   └── scripts/cursor-wiggle.py # shake-to-find-cursor daemon
+├── sway/
+│   ├── README.md               # side-by-side Sway session (Hyprland stays default)
+│   └── config                # sway session reusing waybar-sway + wlogout + mako
+├── swaylock/config             # Sway lock screen (swayidle + Super+L)
+├── matugen/                    # wallpaper-driven colors (optional, graceful)
+│   ├── README.md
+│   ├── config.toml             # wallpaper set=false, 4 templates
+│   └── templates/              # waybar / kitty / rofi / hypr templates
+├── sddm/                       # side-by-side login config (reference only, greetd stays)
+│   ├── README.md
+│   ├── 10-theme.conf
+│   └── 10-wayland.conf
 ├── wlogout/                    # overlay power menu (layout, style, icons)
-├── kitty/kitty.conf            # standalone, no theme includes
+├── kitty/
+│   ├── kitty.conf            # standalone + `include colors.conf`
+│   └── colors.conf           # fallback palette (copied; matugen regenerates)
 ├── btop/btop.conf              # minimal overrides, built-in theme
 ├── mako/config                 # notifications: 7s timeout, critical persists
 ├── rofi/
-│   ├── wallpaper-picker.sh     # visual wallpaper browser (see below)
-│   ├── wallpaper.rasi          # filmstrip theme (picker only)
-│   └── wallpaper-menu.rasi     # category menu theme (picker only)
+│   ├── wallpaper-picker.sh     # GUI-free animated wallpaper cycling
+│   ├── wallpaper.rasi          # optional manual filmstrip theme
+│   ├── wallpaper-menu.rasi     # optional manual category theme
+│   └── matugen.rasi            # fallback accent (copied; matugen regenerates)
 ├── fingerprint/                # manual Goodix 27c6:5503 notes — never auto-run
 ├── config-files/               # on-demand reference helpers, nothing symlinked
 └── wallpapers/README.md        # wallpapers live in ~/Pictures/Wallpapers
@@ -117,8 +139,9 @@ Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
   - Notification bell with unread count; **click** opens a rofi
     notification center (visible + history, dismiss-all action).
   - Screenshot camera; **click** opens a rofi menu: fullscreen,
-    region (`slurp`), active window, 3s delay. Saves to
-    `~/Pictures/Screenshots/`, copies to clipboard, opens
+    region (`slurp`), active window, 3s delay. Capture itself is silent,
+    so no countdown notification can be embedded in the image. Saves to
+    `~/Pictures/Screenshots/`, copies to clipboard, and opens
     `swappy`/`satty` if installed.
   - Screen recorder; **click** opens a rofi menu: fullscreen,
     region, stop. Records the **system audio you're playing** (Spotify,
@@ -132,20 +155,27 @@ Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
 - Subtle 0.2s transitions on hover/state changes; compact sizing
   tuned for 1080p @ 1.5x.
 
-## Wallpapers (rofi picker + awww)
+## Wallpapers (scroll or cycle, via awww)
 
-- Press **Super+Shift+W** to open the visual browser: **every** wallpaper
-  at once in one horizontal thumbnail filmstrip — no folders, no category
-  step. Scroll the strip, **Enter** applies instantly, **Esc** cancels.
-  Type to filter anytime.
+- Press **Super+Shift+W** to scroll the library: **every** wallpaper at once
+  in one horizontal thumbnail filmstrip — no folders, no category step.
+  Scroll the strip, **Enter** applies instantly, **Esc** cancels. Type to
+  filter anytime.
 - The current wallpaper is marked (●) and pre-selected on open.
+- Prefer no GUI at all? **Super+Alt+W** / **Super+Alt+Shift+W** jump straight
+  to the next / previous wallpaper, entering from the matching side.
+- These keybinds live in `hypr/config/wallpaper.lua`, so they are versioned
+  here rather than in the untracked `binds.lua`.
 - Prefer folders for a big mixed library? Run the picker with `--menu` for
-  the old category-first flow (which also offers **Random wallpaper**);
+  the category-first flow (which also offers **Random wallpaper**);
   `--random` applies one at random directly.
-- Applies via `awww` with a `center` grow transition (~0.9s, 60fps —
-  no fade). Library: `~/Pictures/Wallpapers` by default; override with
-  `$WALLPAPER_DIR` or a path in `~/.config/my-local-configs/wallpaper-dir`
-  (static jpg/jpeg/png/webp/bmp; GIF/video/animated-webp excluded).
+- Applies via `awww` with a 1.05s eased transition (60fps, no fade).
+- Every change regenerates the Waybar palette and replays a short color
+  transition. Matugen is used when installed; otherwise the included
+  `wallpaper-theme.sh` derives colors with Python Pillow.
+- Library: `~/Pictures/Wallpapers` by default; override with `$WALLPAPER_DIR`
+  or a path in `~/.config/my-local-configs/wallpaper-dir` (static
+  jpg/jpeg/png/webp/bmp; GIF/video/animated-webp excluded).
 - Thumbnails are cached in `~/.cache/wallpaper-picker/` (built once by
   `install.sh`, refreshed automatically when you add/remove images).
 - Your launcher theme is untouched: the picker uses its own
@@ -178,11 +208,85 @@ Rollback anytime with `./emergency-restore.sh` (newest backup, asks first;
 - The bar's power pill and **Super+Alt+C** open the `wlogout` overlay —
   a Wayland layer-shell surface, so Waybar never moves or restarts.
   Blur comes from the `wlogout` layer rule in `hypr/config/waybar.lua`.
-- Fast lock: **Super+L** (`hyprlock`, falls back to `loginctl lock-session`).
+  Five buttons: **Lock / Logout (= Signout) / Suspend / Reboot / Shutdown**.
+- Fast lock: **Super+L** (`hyprlock` → `swaylock -f` → `loginctl` fallback).
+  The lock screen is `hypr/hyprlock.conf` — see below.
 - Direct actions (no menu): **Super+Alt+L** lock · **Super+Alt+E** logout ·
   **Super+Alt+S** suspend · **Super+Alt+R** reboot · **Super+Alt+P** shutdown.
+- Portable across compositors: layout actions try
+  `hyprctl` → `swaymsg` → `loginctl`, so the same overlay works in Sway.
+  The rofi fallback (`power-menu.sh`) includes Suspend too.
 - Hibernate is intentionally omitted: this machine only has zram swap.
-- Keybinds live in `hypr/config/session.lua`; `binds.lua` is untouched.
+- Keybinds live in `hypr/config/session.lua` (Hyprland) and `sway/config`
+  (Sway); `binds.lua` is untouched.
+
+## Tiling (Hyprland dwindle)
+
+- **Tiles settle instead of teleporting.** Every reflow — opening, closing,
+  swapping, resizing a neighbour — springs into place with a slight
+  overshoot, so the layout has weight.
+- **Windows scale into their slot** rather than sliding in from a screen
+  edge; closing reverses it. Focus eases the border and sweeps its gradient
+  once.
+- **The focused window is lit in the wallpaper's accent colour**, and it
+  re-lights live as you scroll wallpapers — the same accent Waybar takes.
+- `preserve_split` keeps a container's orientation when a sibling closes,
+  `smart_resizing` resizes the edge you pull, and floating windows snap to
+  neighbours and screen edges.
+- Motion-first on purpose: this is Intel UHD G4 at 1920x1080 with
+  `blur.passes = 4`, so effects that would cost every frame are avoided —
+  the border gradient sweeps `once` per focus change rather than looping,
+  and motion blur ships off behind a commented one-liner.
+- All of it lives in `hypr/config/tiling.lua`, which overrides only motion.
+  Your `animations.lua` / `decorations.lua` keep owning gaps, rounding,
+  opacity, blur and border colours; delete the require line to revert.
+
+## Lock screen (hyprlock)
+
+- Shows **the wallpaper you currently have applied**, blurred, with a live
+  clock, the date, and a now-playing line when something is playing.
+- **Audio keeps playing while locked.** Nothing in the lock path pauses
+  players, and volume / mute / play-pause / next / previous stay bound on the
+  lock screen (`{ locked = true }` in `hypr/config/capture.lua`), so you can
+  control the music without unlocking.
+- The wallpaper comes from one fixed path,
+  `~/.cache/wallpaper-picker/lock-background.jpg`, refreshed by the picker on
+  every wallpaper change. So every lock entry point — Super+L, Super+Alt+L,
+  the wlogout **Lock** button, `power-menu.sh` — shows the same current
+  wallpaper, and the config itself never needs regenerating.
+  Re-sync by hand: `wallpaper-picker.sh --sync-lock-image`.
+- A screenshot background is deliberately **not** used: it would leak
+  whatever was on screen when you locked. Missing cache file falls back to a
+  dark fill instead of failing.
+- Note: before this config existed, `hyprlock` had none at all — it exits
+  with “No config file at …”, so Super+L fell through to
+  `loginctl lock-session` and the screen never actually locked.
+
+## Sway (side-by-side WM)
+
+- Hyprland stays default. `sway/config` reuses the same Waybar islands
+  (`waybar/config-sway.jsonc`: `sway/workspaces` + `sway/mode` left,
+  identical right modules), the same wlogout overlay, mako, rofi, kitty.
+- Launch: `sway` from a TTY or pick Sway in the greeter.
+  Stop: Super+Alt+E or the wlogout overlay. See `sway/README.md`.
+- Install: `sudo pacman -S sway swaylock swayidle swaybg`.
+
+## Theming details (matugen + fallback)
+
+- Every wallpaper change regenerates `~/.config/waybar/matugen.css`
+  (see “Wallpapers” above). With matugen installed, `matugen/config.toml`
+  additionally recolors kitty (`colors.conf`), rofi (`matugen.rasi`) and
+  the Hypr accent (`config/matugen.lua`) from the same wallpaper.
+- Generated files are real files (never symlinks); install.sh only copies
+  fallbacks when missing, never clobbering generated output.
+- Details in `matugen/README.md`.
+
+## Login screen / SDDM (side-by-side reference)
+
+- The system uses **greetd + noctalia-greeter**; `sddm/` never activates
+  automatically and install.sh never touches `/etc` or switches greeters.
+- To try SDDM: install it, `sudo cp sddm/*.conf /etc/sddm.conf.d/`,
+  set a theme, test with `sddm-greeter --test-mode`. Steps in `sddm/README.md`.
 
 ## Known upstream quirk (Hyprland Lua build)
 

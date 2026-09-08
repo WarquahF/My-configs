@@ -1,0 +1,6 @@
+/* matugen template -> ~/.config/rofi/matugen.rasi (optional import) */
+* {
+    matugen-accent: #{{colors.primary.default.hex}};
+    matugen-surface: #{{colors.surface.default.hex}};
+    matugen-on-surface: #{{colors.on_surface.default.hex}};
+}

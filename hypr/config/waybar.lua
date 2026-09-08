@@ -13,12 +13,14 @@ hl.layer_rule({
     ignore_alpha = 0.3,
 })
 
--- Rofi power menu (~/.config/waybar/scripts/power-menu.sh) gets the same
--- treatment so it floats over a softly blurred background.
+-- Rofi menus (power menu + the wallpaper picker) get the same blurred
+-- backdrop, plus a scale-in entrance: the surface pops from 80% to full so
+-- the wallpaper switcher and launcher animate open instead of snapping in.
 hl.layer_rule({
     match = { namespace = "rofi" },
     blur = true,
     ignore_alpha = 0.3,
+    animation = "popin 80%",
 })
 
 -- wlogout power overlay (replaces Noctalia session). Layer-shell overlay:

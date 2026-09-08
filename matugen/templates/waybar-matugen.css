@@ -1,0 +1,13 @@
+/* matugen template -> ~/.config/waybar/matugen.css
+ * Semantic colors only; layout lives in style.css which does:
+ *   @import url("matugen.css");
+ * Without matugen, the fallback matugen.css ships the static palette.
+ */
+@define-color accent #{{colors.primary.default.hex}};
+@define-color accent-fg #{{colors.on_primary.default.hex}};
+@define-color accent-container #{{colors.primary_container.default.hex}};
+@define-color surface #{{colors.surface.default.hex}};
+@define-color surface-fg #{{colors.on_surface.default.hex}};
+@define-color outline #{{colors.outline.default.hex}};
+@define-color warning #{{colors.tertiary.default.hex}};
+@define-color critical #{{colors.error.default.hex}};

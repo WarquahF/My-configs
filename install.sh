@@ -30,11 +30,19 @@ if [[ "$missing_required" -ne 0 ]]; then
     echo "[install] install the missing packages first (e.g. sudo pacman -S waybar rofi), then re-run." >&2
     exit 1
 fi
-for opt in nmcli nmtui pactl pavucontrol loginctl systemctl python3 grim slurp wl-copy jq swappy satty wf-recorder wlogout hyprlock; do
+for opt in nmcli nmtui pactl pavucontrol playerctl loginctl systemctl python3 grim slurp wl-copy jq swappy satty wf-recorder wlogout hyprlock sway swaylock swayidle swaybg swaymsg matugen sddm; do
     command -v "$opt" >/dev/null 2>&1 || warn "optional tool missing: $opt (some bar actions degrade gracefully)"
 done
 command -v wlogout >/dev/null 2>&1 || warn "wlogout not installed: power button falls back to rofi (sudo pacman -S wlogout)"
 command -v hyprlock >/dev/null 2>&1 || warn "hyprlock not installed: lock falls back to loginctl (sudo pacman -S hyprlock)"
+command -v sway >/dev/null 2>&1 || warn "sway not installed: sway/ config is inert until you install it (sudo pacman -S sway swaylock swayidle swaybg)"
+if ! command -v matugen >/dev/null 2>&1 \
+    && ! python3 -c 'from PIL import Image' >/dev/null 2>&1; then
+    warn "wallpaper colors need matugen or python-pillow (sudo pacman -S python-pillow)"
+fi
+if ! command -v sddm >/dev/null 2>&1; then
+    warn "sddm not installed: sddm/ stays as side-by-side reference, greetd untouched (sudo pacman -S sddm)"
+fi
 
 # --- Helpers ----------------------------------------------------------------
 # backup_if_exists is single-shot per run: the FIRST original wins. If the same
@@ -100,26 +108,41 @@ link_file() {
 LINK_SRC=(); LINK_DEST=()
 add_link() { LINK_SRC+=("$1"); LINK_DEST+=("$2"); }
 
-add_link "waybar/config.jsonc" ".config/waybar/config.jsonc"
-add_link "waybar/style.css"    ".config/waybar/style.css"
+add_link "waybar/config.jsonc"      ".config/waybar/config.jsonc"
+add_link "waybar/config-sway.jsonc" ".config/waybar/config-sway.jsonc"
+add_link "waybar/style.css"         ".config/waybar/style.css"
 for f in "$REPO_DIR"/waybar/scripts/*.sh; do
     add_link "waybar/scripts/$(basename "$f")" ".config/waybar/scripts/$(basename "$f")"
 done
-add_link "hypr/config/waybar.lua"        ".config/hypr/config/waybar.lua"
-add_link "hypr/config/capture.lua"       ".config/hypr/config/capture.lua"
-add_link "hypr/config/session.lua"       ".config/hypr/config/session.lua"
-add_link "hypr/config/navigation.lua"    ".config/hypr/config/navigation.lua"
+# Hyprland modules this repo owns. HYPR_MODULES doubles as the list of
+# require("config.<name>") lines install.sh keeps in hyprland.lua below, so a
+# new module only has to be named once.
+HYPR_MODULES=(waybar capture session navigation wallpaper tiling)
+for m in "${HYPR_MODULES[@]}"; do
+    add_link "hypr/config/$m.lua" ".config/hypr/config/$m.lua"
+done
+add_link "hypr/hyprlock.conf"            ".config/hypr/hyprlock.conf"
 add_link "hypr/scripts/cursor-wiggle.py" ".config/hypr/scripts/cursor-wiggle.py"
+add_link "hypr/scripts/now-playing.sh"   ".config/hypr/scripts/now-playing.sh"
 add_link "kitty/kitty.conf" ".config/kitty/kitty.conf"
 add_link "btop/btop.conf"   ".config/btop/btop.conf"
 add_link "mako/config"      ".config/mako/config"
 add_link "rofi/wallpaper-picker.sh" ".config/rofi/wallpaper-picker.sh"
 add_link "rofi/wallpaper.rasi"      ".config/rofi/wallpaper.rasi"
 add_link "rofi/wallpaper-menu.rasi" ".config/rofi/wallpaper-menu.rasi"
+add_link "rofi/power.rasi"          ".config/rofi/power.rasi"
 add_link "wlogout/layout"    ".config/wlogout/layout"
 add_link "wlogout/style.css" ".config/wlogout/style.css"
 for f in "$REPO_DIR"/wlogout/icons/*.png; do
     add_link "wlogout/icons/$(basename "$f")" ".config/wlogout/icons/$(basename "$f")"
+done
+# Sway session (Hyprland stays default) and its lock screen.
+add_link "sway/config"     ".config/sway/config"
+add_link "swaylock/config" ".config/swaylock/config"
+# matugen: config plus every template, so new templates need no edit here.
+add_link "matugen/config.toml" ".config/matugen/config.toml"
+for f in "$REPO_DIR"/matugen/templates/*; do
+    add_link "matugen/templates/$(basename "$f")" ".config/matugen/templates/$(basename "$f")"
 done
 
 # --- Preflight: someone else's dotfiles? Ask before touching them ------------
@@ -151,8 +174,29 @@ mkdir -p "$HOME_DIR/.config/waybar/scripts" "$HOME_DIR/.config/hypr/config" \
          "$HOME_DIR/.config/kitty" "$HOME_DIR/.config/btop" \
          "$HOME_DIR/.config/mako" "$HOME_DIR/.config/rofi" \
          "$HOME_DIR/.config/wlogout" \
+         "$HOME_DIR/.config/sway" "$HOME_DIR/.config/swaylock" \
+         "$HOME_DIR/.config/matugen/templates" \
          "$HOME_DIR/Pictures/Wallpapers" "$HOME_DIR/Pictures/Screenshots" \
          "$HOME_DIR/Videos/Recordings"
+
+# copy_fallback <repo-relative-src> <home-relative-dest>
+# For matugen-generated outputs: copy the static fallback ONLY when the
+# destination does not exist yet, so `matugen image ...` output is never
+# clobbered on re-runs. Existing real files (incl. matugen output) are kept.
+copy_fallback() {
+    local src="$REPO_DIR/$1" dest="$HOME_DIR/$2"
+    if [[ ! -e "$src" ]]; then
+        warn "repo file missing, skipping: $1"
+        return
+    fi
+    mkdir -p "$(dirname "$dest")"
+    if [[ -e "$dest" || -L "$dest" ]]; then
+        log "kept existing ~/$2 (matugen output or yours, not overwritten)"
+        return
+    fi
+    cp "$src" "$dest"
+    log "copied fallback ~/$2 (from $1)"
+}
 
 # --- Symlink everything in the manifest ---------------------------------------
 mkdir -p "$HOME_DIR/.config/hypr/scripts"
@@ -162,54 +206,44 @@ done
 # Executable bits (repo-side; the symlinks inherit them).
 chmod +x "$REPO_DIR"/waybar/scripts/*.sh
 chmod +x "$REPO_DIR/hypr/scripts/cursor-wiggle.py"
+chmod +x "$REPO_DIR/hypr/scripts/now-playing.sh"
 chmod +x "$REPO_DIR/rofi/wallpaper-picker.sh"
-log "waybar scripts, cursor-wiggle and wallpaper picker are executable"
+log "waybar scripts, hypr scripts and wallpaper picker are executable"
 
 HYPR_MAIN="$HOME_DIR/.config/hypr/hyprland.lua"
 if [[ -f "$HYPR_MAIN" ]]; then
-    # Single backup covers all require lines below (originals are moved, never deleted).
-    if grep -q 'require("config.waybar")' "$HYPR_MAIN" \
-    && grep -q 'require("config.capture")' "$HYPR_MAIN" \
-    && grep -q 'require("config.session")' "$HYPR_MAIN" \
-    && grep -q 'require("config.navigation")' "$HYPR_MAIN"; then
-        log "hyprland.lua already requires config.waybar + config.capture + config.session + config.navigation"
+    # One require line per module in HYPR_MODULES, each chained after the
+    # previous one so they land in that order (windowrules is the anchor for
+    # the first). Every module needs the same treatment, so it is one loop
+    # rather than a copy of this block per module -- adding a module means
+    # adding a name to HYPR_MODULES and nothing else.
+    missing=()
+    for m in "${HYPR_MODULES[@]}"; do
+        grep -q "require(\"config.$m\")" "$HYPR_MAIN" || missing+=("$m")
+    done
+    if (( ${#missing[@]} == 0 )); then
+        log "hyprland.lua already requires: ${HYPR_MODULES[*]}"
     else
+        # Single backup covers every require line added below (the original is
+        # moved, never deleted), and the working copy is restored ONCE so each
+        # insertion sees the previous one.
         backup_if_exists "$HYPR_MAIN"
-        # Re-create from backup with the requires added
-        # (order: windowrules, waybar, capture, session, navigation).
         cp "$BACKUP_DIR/.config/hypr/hyprland.lua" "$HYPR_MAIN"
-        if ! grep -q 'require("config.waybar")' "$HYPR_MAIN"; then
-            if grep -q 'require("config.windowrules")' "$HYPR_MAIN"; then
-                sed -i '/require("config.windowrules")/a require("config.waybar")' "$HYPR_MAIN"
-            else
-                printf '\nrequire("config.waybar")\n' >> "$HYPR_MAIN"
+        anchor='require("config.windowrules")'
+        for m in "${HYPR_MODULES[@]}"; do
+            line="require(\"config.$m\")"
+            if grep -qF "$line" "$HYPR_MAIN"; then
+                anchor="$line"
+                continue
             fi
-            log "added require(\"config.waybar\") to hyprland.lua"
-        fi
-        if ! grep -q 'require("config.capture")' "$HYPR_MAIN"; then
-            if grep -q 'require("config.waybar")' "$HYPR_MAIN"; then
-                sed -i '/require("config.waybar")/a require("config.capture")' "$HYPR_MAIN"
+            if grep -qF "$anchor" "$HYPR_MAIN"; then
+                sed -i "\\|$anchor|a $line" "$HYPR_MAIN"
             else
-                printf '\nrequire("config.capture")\n' >> "$HYPR_MAIN"
+                printf '\n%s\n' "$line" >> "$HYPR_MAIN"
             fi
-            log "added require(\"config.capture\") to hyprland.lua"
-        fi
-        if ! grep -q 'require("config.session")' "$HYPR_MAIN"; then
-            if grep -q 'require("config.capture")' "$HYPR_MAIN"; then
-                sed -i '/require("config.capture")/a require("config.session")' "$HYPR_MAIN"
-            else
-                printf '\nrequire("config.session")\n' >> "$HYPR_MAIN"
-            fi
-            log "added require(\"config.session\") to hyprland.lua (wlogout, Noctalia untouched)"
-        fi
-        if ! grep -q 'require("config.navigation")' "$HYPR_MAIN"; then
-            if grep -q 'require("config.session")' "$HYPR_MAIN"; then
-                sed -i '/require("config.session")/a require("config.navigation")' "$HYPR_MAIN"
-            else
-                printf '\nrequire("config.navigation")\n' >> "$HYPR_MAIN"
-            fi
-            log "added require(\"config.navigation\") to hyprland.lua (alt+tab)"
-        fi
+            log "added $line to hyprland.lua"
+            anchor="$line"
+        done
     fi
 else
     warn "$HYPR_MAIN not found; create it with: require(\"config.waybar\")"
@@ -267,18 +301,64 @@ else
     warn "wallpaper directory not found; picker cache build skipped"
 fi
 
+# --- Lock screen: point it at the wallpaper that is applied right now --------
+# hypr/hyprlock.conf reads one fixed path; the picker refreshes it on every
+# wallpaper change, and this seeds it so the very first lock is correct too.
+if command -v hyprlock >/dev/null 2>&1; then
+    "$REPO_DIR/rofi/wallpaper-picker.sh" --sync-lock-image 2>&1 \
+        || warn "could not seed the lock screen background; it falls back to a dark fill"
+fi
+command -v playerctl >/dev/null 2>&1 \
+    || warn "playerctl missing: media keys and the lock screen's now-playing line need it (sudo pacman -S playerctl)"
+
+# --- Generated colour files: static fallbacks, only when missing --------------
+# These are matugen outputs (or our Pillow fallback's). Never symlinked and
+# never overwritten, so a generated palette survives re-running the installer.
+copy_fallback "waybar/matugen.css"       ".config/waybar/matugen.css"
+copy_fallback "hypr/config/matugen.lua"  ".config/hypr/config/matugen.lua"
+copy_fallback "kitty/colors.conf"        ".config/kitty/colors.conf"
+copy_fallback "rofi/matugen.rasi"        ".config/rofi/matugen.rasi"
+command -v matugen >/dev/null 2>&1 \
+    && log "matugen found: full desktop colors update with each wallpaper" \
+    || log "matugen not found: built-in Pillow fallback recolors Waybar"
+
+# --- Sway (side-by-side WM, Hyprland stays default) ---------------------------
+# Links come from the manifest; this only reports whether Sway is usable.
+if command -v swaymsg >/dev/null 2>&1; then
+    swaymsg -t get_version >/dev/null 2>&1 && log "swaymsg: sway IPC OK" \
+        || warn "swaymsg present but no sway session running (config still linked)"
+elif command -v sway >/dev/null 2>&1; then
+    log "sway installed (swaymsg check skipped, no session running)"
+fi
+
+# --- SDDM (side-by-side reference only — /etc untouched, greetd stays) --------
+# Copy manually when you want to try it; see sddm/README.md.
+log "sddm/: reference drop-ins only (sudo cp sddm/*.conf /etc/sddm.conf.d/ to try)"
+
 # --- Helpers made executable (repo-side, idempotent) --------------------------
 chmod +x "$REPO_DIR/emergency-restore.sh" 2>/dev/null || true
 
 # --- Validate ------------------------------------------------------------------
 if command -v python3 >/dev/null 2>&1; then
-    python3 - "$REPO_DIR/waybar/config.jsonc" <<'EOF'
+    python3 - "$REPO_DIR/waybar/config.jsonc" "$REPO_DIR/waybar/config-sway.jsonc" <<'EOF'
 import json, re, sys
-text = open(sys.argv[1]).read()
-text = re.sub(r'//.*', '', text)              # strip // comments
-text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)  # strip /* */ comments
-json.loads(text)
-print('[install] waybar config.jsonc: valid JSONC')
+for path in sys.argv[1:]:
+    text = open(path).read()
+    text = re.sub(r'//.*', '', text)              # strip // comments
+    text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)  # strip /* */ comments
+    json.loads(text)
+    print(f'[install] {path.split("/")[-1]}: valid JSONC')
+EOF
+fi
+if command -v python3 >/dev/null 2>&1; then
+    python3 - "$REPO_DIR/matugen/config.toml" <<'EOF'
+import sys
+try:
+    import tomllib
+except ImportError:
+    print('[install] matugen config.toml: tomllib unavailable, skipped'); sys.exit(0)
+tomllib.load(open(sys.argv[1], 'rb'))
+print('[install] matugen config.toml: valid TOML')
 EOF
 fi
 bash -n "$REPO_DIR/install.sh" && log "install.sh: syntax OK"
@@ -286,6 +366,7 @@ for script in "$REPO_DIR"/waybar/scripts/*.sh; do
     bash -n "$script" || exit 1
 done
 bash -n "$REPO_DIR/rofi/wallpaper-picker.sh" || exit 1
+bash -n "$REPO_DIR/hypr/scripts/now-playing.sh" || exit 1
 bash -n "$REPO_DIR/emergency-restore.sh" || exit 1
 log "shell scripts: syntax OK"
 if command -v python3 >/dev/null 2>&1; then

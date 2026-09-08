@@ -1,0 +1,13 @@
+/* Fallback when matugen is not installed or has never run.
+ * Static Liquid Glass palette — matches style.css defaults.
+ * matugen overwrites ~/.config/waybar/matugen.css on `matugen image ...`;
+ * install.sh copies (never symlinks) this file so regeneration can replace it.
+ */
+@define-color accent #89b4fa;
+@define-color accent-fg #11111b;
+@define-color accent-container #2a2e3a;
+@define-color surface #101218;
+@define-color surface-fg #e8eaf0;
+@define-color outline rgba(255, 255, 255, 0.12);
+@define-color warning #f0c070;
+@define-color critical #f09393;
