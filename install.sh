@@ -18,6 +18,22 @@ BACKUP_DIR="$HOME_DIR/.config-backup-$(date +%Y%m%d-%H%M%S)"
 log()  { printf '[install] %s\n' "$*"; }
 warn() { printf '[install] warning: %s\n' "$*" >&2; }
 
+# --- Session detection: these are Hyprland configs ---------------------------
+DESKTOP="${XDG_CURRENT_DESKTOP:-unknown}"
+if command -v hyprctl >/dev/null 2>&1 && [[ "$DESKTOP" == *hyprland* || "$DESKTOP" == *Hyprland* ]]; then
+    log "Hyprland session detected - good, these configs are made for it"
+elif [[ "$DESKTOP" != unknown ]]; then
+    if [[ -t 0 ]]; then
+        echo "[install] you are running $DESKTOP, but these are Hyprland-specific configs." >&2
+        read -rp "[install] installing anyway may disturb your existing tools. Continue? [y/N] " ans
+        [[ "$ans" == [yY]* ]] || { echo "[install] aborted, nothing changed."; exit 0; }
+    else
+        echo "[install] non-Hyprland desktop ($DESKTOP) and non-interactive shell: aborting." >&2
+        echo "[install] run install.sh in a terminal from a Hyprland session." >&2
+        exit 1
+    fi
+fi
+
 # --- Dependency check (fail safe, install nothing) -------------------------
 missing_required=0
 for dep in hyprctl waybar rofi; do
@@ -57,9 +73,42 @@ backup_if_exists() {
     fi
 }
 
+# --dry-run: list exactly what would change, touch nothing.
+if [[ "${1:-}" == "--dry-run" || "${1:-}" == "-n" ]]; then
+    DRY_RUN=1
+    echo "[dry-run] what install.sh would do (nothing is changed):"
+    echo "[dry-run] backup dir would be: $HOME_DIR/.config-backup-<timestamp>"
+    echo "[dry-run] files that would be linked into ~/:"
+    for i in "${!LINK_DEST[@]}"; do
+        [[ -n "${LINK_DEST[$i]:-}" ]] || continue
+        dest="$HOME_DIR/${LINK_DEST[$i]}"
+        if [[ -L "$dest" && "$(readlink "$dest")" == "$REPO_DIR/${LINK_SRC[$i]}" ]]; then
+            echo "[dry-run]   already linked:  ~/${LINK_DEST[$i]}"
+        elif [[ -e "$dest" || -L "$dest" ]]; then
+            echo "[dry-run]   REPLACE (backup first): ~/${LINK_DEST[$i]}"
+        else
+            echo "[dry-run]   create:           ~/${LINK_DEST[$i]}"
+        fi
+    done
+    exit 0
+fi
+
 # Installer mode: all = replace everything (with backup), select = ask per
-# file. Non-tty defaults to all (script-safe).
+# file. Non-tty defaults to abort unless CachyOS with no real config to lose.
 INSTALL_MODE="all"
+if [[ ! -t 0 ]]; then
+    # Fresh CachyOS + no existing hyprland config: the common "clone and run"
+    # case deserves a one-command install; any existing config means hands off.
+    if grep -qi 'cachyos' /etc/os-release 2>/dev/null \
+       && [[ ! -e "$HOME_DIR/.config/hypr/hyprland.lua" ]] \
+       && [[ ! -e "$HOME_DIR/.config/hypr/hyprland.conf" ]]; then
+        echo "[install] non-interactive shell on CachyOS with no existing hyprland config: full install (backup still taken)"
+    else
+        echo "[install] non-interactive shell detected and configs already exist here; aborting for safety." >&2
+        echo "[install] run install.sh in an interactive terminal to choose all/ask/abort." >&2
+        exit 1
+    fi
+fi
 ask_replace() {
     # ask_replace <home-relative-dest>: return 0 if this file may be replaced.
     local dest_rel="$1"
@@ -211,6 +260,9 @@ if [[ -f "$HYPR_MAIN" ]]; then
             log "added require(\"config.navigation\") to hyprland.lua (alt+tab)"
         fi
     fi
+elif [[ -f "$HOME_DIR/.config/hypr/hyprland.conf" ]]; then
+    warn "plain hyprland.conf found: this repo targets the Lua-style config, so auto-wiring is skipped"
+    warn "add these lines to hyprland.conf yourself: source = ~/.config/hypr/config/*.conf (or port them)"
 else
     warn "$HYPR_MAIN not found; create it with: require(\"config.waybar\")"
 fi
