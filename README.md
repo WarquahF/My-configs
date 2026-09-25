@@ -249,3 +249,10 @@ hyprctl reload; pkill waybar; waybar &
 
 Symlinks can be removed with plain `rm` — your backups are real files,
 so deleting a link never deletes the backup.
+
+## Secret scanning
+
+This repo runs [gitleaks](https://github.com/gitleaks/gitleaks) on every push,
+every pull request, and a full-history sweep every 6 hours via CI
+(`.github/workflows/secret-scan.yml`). If a scan fails, a secret has likely
+leaked — rotate it immediately, then scrub the history.
